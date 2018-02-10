@@ -9,6 +9,18 @@ Le langage s’inspire de [Rust](https://www.rust-lang.org/),
 [ECMAScript](https://www.ecma-international.org/publications/standards/Ecma-262\
 .htm), [Haskell](https://www.haskell.org/) et bien d’autres.
 
+## Travailler sur le projet
+### FIXME
+### Configurer l'environnement de développement Windows
+### Configurer l'environnement de développement Linux
+### Formattage
+Ce projet utilise un outil pour formatter accordément aux conventions.
+
+Utiliser l'utilitaire [rustfmt](https://github.com/rust-lang-nursery/rustfmt)
+pour formatter le code.
+Le fonctionnement est simple:
+`cargo +nightly fmt`
+
 ## Mes motivations
 Je me questionne parfois sur le procédé de compilation des langages de
 programmation.
