@@ -1,51 +1,51 @@
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenType {
-    EOF, //
+    EOF,        //
     Identifier, // abcdef
     Underscore, // _
 
-    Assign, // =
-    Plus, // +
-    Minus, // -
+    Assign,   // =
+    Plus,     // +
+    Minus,    // -
     Division, // /
-    Modulo, // %
-    Power, // ^
-    Not, // !
+    Modulo,   // %
+    Power,    // ^
+    Not,      // !
 
-    EqEq, // ==
+    EqEq,  // ==
     NotEq, // !=
-    Lt, // <
-    Gt, // >
-    LtEq, // <=
-    GtEq, // >=
+    Lt,    // <
+    Gt,    // >
+    LtEq,  // <=
+    GtEq,  // >=
 
-    OrOr, // ||
+    OrOr,   // ||
     AndAnd, // &&
 
-    Comma, // ,
+    Comma,     // ,
     Semicolon, // ;
-    Lparen, // (
-    Rparen, // )
-    Lbracket, // {
-    Rbracket, // }
-    Lbrace, // [
-    Rbrace, // ]
+    Lparen,    // (
+    Rparen,    // )
+    Lbracket,  // {
+    Rbracket,  // }
+    Lbrace,    // [
+    Rbrace,    // ]
 
     Comment(Comment),
     Keyword(Keywords),
-    Boolean(Boolean)
+    Boolean(Boolean),
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Comment {
     Line, // //
-    Block(BlockComment)
+    Block(BlockComment),
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum BlockComment {
     Start, // /*
-    End // */
+    End,   // */
 }
 
 /// Includes reserved keywords
@@ -78,17 +78,17 @@ pub enum Keywords {
     Switch,
     Unless,
     Use,
-    While
+    While,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Boolean {
     TRUE,
-    FALSE
+    FALSE,
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct Token {
+pub struct Token<'a> {
     token_type: TokenType,
-    literal: String
+    literal: &'a str,
 }
