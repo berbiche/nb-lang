@@ -1,8 +1,6 @@
 use token::{Token, TokenType};
-//use failure::Error;
 
 use std::cmp::Ordering;
-use std::error;
 use std::fmt;
 use std::iter::Peekable;
 use std::result;
@@ -84,13 +82,12 @@ impl<'a> Lexer<'a> {
         S: Into<&'a str>,
     {
         let input = input.into();
-        let size = input.len();
         Lexer {
             current_char: None,
             current_token: None,
             input: input.chars().peekable(),
             position: Position { column: 0, line: 1 },
-            tokens: Vec::with_capacity(size),
+            tokens: Vec::new(),
         }
     }
 
