@@ -1,5 +1,8 @@
+use lexer::Position;
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenType {
+    Illegal,
     EOF,        //
     Identifier, // abcdef
     Underscore, // _
@@ -91,4 +94,15 @@ pub enum Boolean {
 pub struct Token<'a> {
     token_type: TokenType,
     literal: &'a str,
+    position: Position,
+}
+
+impl<'a> Default for Token<'a> {
+    fn default() -> Self {
+        Token {
+            token_type: TokenType::Illegal,
+            literal: "",
+            position: Position::new(0, 0),
+        }
+    }
 }

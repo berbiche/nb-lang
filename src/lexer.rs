@@ -1,41 +1,59 @@
-//use std::error;
-use std::fmt::{Debug, Display, Formatter};
+use token::{Token, TokenType};
+//use failure::Error;
+
+use std::cmp::Ordering;
+use std::error;
+use std::fmt;
 use std::iter::Peekable;
 use std::result;
 use std::str::Chars;
+
 
 /// Un type spécialisé pour les erreurs du lexer
 pub type Result<T> = result::Result<T, Error>;
 
 // FIXME(Nicolas): Me remplir d'encore plus d'erreurs
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Eq, Fail, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Error {
     /// Identifiant invalide
-    InvalidIdentifier,
+    #[fail(display = "Identifiant invalide: '{}' à {}", ident, position)]
+    InvalidIdentifier { ident: String, position: Position },
     /// Une chaîne de caractère invalide dans l'entrée
-    InvalidString,
+    #[fail(display = "Chaîne de caractères invalide: '{}' à {}", st, position)]
+    InvalidString {  st: String, position: Position },
+    /// Début de chaîne de caractères manquant '"'
+    #[fail(display = "Début de chaîne de caractères manquant à {}", position)]
+    MissingStringBeginning { position: Position },
     /// End-of-file atteint avant la fin de l'opération désiré
-    UnexpectedEOF,
+    #[fail(display = "End-of-File atteint avant la fin de la séquence désiré à {}", position)]
+    UnexpectedEOF { position: Position },
     /// Chaîne de caractères non-terminée, peut-être dû à un EOF comme autre chose
-    UnterminatedString,
+    #[fail(display = "Chaîne de caractères n'est pas terminée à {}", position)]
+    UnterminatedString { position: Position },
 }
 
 /// Représente une position dans un programme
 /// Peut être employé pour attacher de l'information sur un lexème ou autre
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Position {
-    /// Colonne
-    column: usize,
     /// Ligne
     line: usize,
+    /// Colonne
+    column: usize,
 }
 
 impl Position {
     pub fn new(line: usize, column: usize) -> Self {
         Position {
-            column,
             line,
+            column,
         }
+    }
+}
+
+impl fmt::Display for Position {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
     }
 }
 
@@ -45,7 +63,9 @@ impl Position {
 #[derive(Debug)]
 pub struct Lexer<'a> {
     /// Caractère courant dans la séquence de caractères
-    current: Option<char>,
+    current_char: Option<char>,
+    /// Lexème courant dans le vecteur de token
+    current_token: Option<Token<'a>>,
     /// L'entrée à parse, une séquence de caractères itérable
     input: Peekable<Chars<'a>>,
     /// Position actuelle dans le programme
@@ -53,6 +73,8 @@ pub struct Lexer<'a> {
     /// en prenant en considération le fait que certains systèmes d'exploitation
     /// utilise plusieurs caractères pour représenter une nouvelle ligne
     position: Position,
+    /// Vecteur contenant les lexèmes
+    tokens: Vec<Token<'a>>,
 }
 
 impl<'a> Lexer<'a> {
@@ -61,29 +83,42 @@ impl<'a> Lexer<'a> {
     where
         S: Into<&'a str>,
     {
+        let input = input.into();
+        let size = input.len();
         Lexer {
-            current: None,
-            input: input.into().chars().peekable(),
+            current_char: None,
+            current_token: None,
+            input: input.chars().peekable(),
             position: Position { column: 0, line: 1 },
+            tokens: Vec::with_capacity(size),
         }
+    }
+
+    pub fn current_token() -> Option<&'a Token<'a>> {
+        unimplemented!()
+    }
+
+    pub fn peek_token() -> Option<&'a Token<'a>> {
+        unimplemented!()
+    }
+
+    pub fn read_token() -> Option<Token<'a>> {
+        unimplemented!()
     }
 
     /// Renvoie le caractère courant dans la séquence de caractères
     /// renvoie `None` si la fin de la séquence est atteinte
-    #[inline]
-    fn current(&self) -> Option<char> {
-        self.current
+    fn current_char(&self) -> Option<char> {
+        self.current_char
     }
 
     /// Renvoie la position actuelle dans le programme du lexer
-    #[inline]
     fn position(&self) -> &Position {
         &self.position
     }
 
     /// Permet de voir le prochain caractère sans consommer le caractère
     /// renvoie `None` si la fin de la séquence est atteinte
-    #[inline]
     fn peek(&mut self) -> Option<&char> {
         self.input.peek()
     }
@@ -91,12 +126,11 @@ impl<'a> Lexer<'a> {
     /// Renvoie le prochain caractère, le consommant de l'itérateur
     /// renvoie `None` si la fin de la séquence est atteinte
     fn read(&mut self) -> Option<char> {
-        let previous = self.current;
         let current = self.input.next();
 
         if let Some(current) = current {
             if is_newline(&current) {
-                if let Some(previous) = previous {
+                if let Some(previous) = self.current_char {
                     // si nous n'avons pas une séquence CRLF
                     if !(previous == '\u{000D}' && current == '\u{000A}') {
                         self.position.line += 1;
@@ -109,8 +143,8 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        self.current = current;
-        self.current
+        self.current_char = current;
+        self.current_char
     }
 
     /// Saute les espaces-blancs, incluant le retour à la ligne
@@ -129,10 +163,11 @@ impl<'a> Lexer<'a> {
     /// let expected = Ok("identifiant_valide".to_string());
     /// assert_eq!(expected, lexer.read_identifier());
     /// ```
-    fn read_identifier(&mut self) -> Result<String> {
+    fn read_identifier(&mut self) -> Option<String> {
+        let pos = self.position;
         let mut st = match self.take_while(|ch| ch.is_alphabetic() || *ch == '_') {
             Some(st) => st,
-            None => return Err(Error::InvalidIdentifier),
+            None => return None,
         };
 
         // permet d'avoir un point d'interrogation à la fin d'un identifiant
@@ -145,7 +180,7 @@ impl<'a> Lexer<'a> {
             st.push(self.read().unwrap());
         }
 
-        Ok(st)
+        Some(st)
     }
 
     /// Permet de lire des nombres décimaux
@@ -207,22 +242,22 @@ impl<'a> Lexer<'a> {
         // le caractère '"' qui n'a pas le caractère d'échappe '\\' avant
         // et que ce caractère d'échappe n'est pas échappé
         let mut st = String::new();
-
-        // on prend d'abord le premier '"'
-        match self.read() {
-            Some(ch) if ch == '"' => st.push(ch),
-            _ => return Err(Error::InvalidString),
-        };
+        // le premier '"'
+        if let Some(ch) = self.read() {
+            st.push(ch);
+        }
 
         // nous devons connaître le caractère précédent pour savoir si échappé
         let mut previous_ch = '\0';
         while let Some(current_ch) = self.read() {
+            let pos = self.position;
+
             if current_ch == '\0' {
-                return Err(Error::UnexpectedEOF)
+                return Err(Error::UnexpectedEOF { position: pos })
             }
             // les caractères de contrôle sont interdits
             if !is_newline(&current_ch) && current_ch.is_control() {
-                return Err(Error::InvalidString);
+                return Err(Error::InvalidString { st, position: pos });
             }
 
             st.push(current_ch);
@@ -240,7 +275,7 @@ impl<'a> Lexer<'a> {
             previous_ch = current_ch;
         }
 
-        Err(Error::UnterminatedString)
+        Err(Error::UnterminatedString { position: self.position })
     }
 
     /// Notre version de skip_while qui ne consomme pas le caractère
@@ -463,14 +498,14 @@ mod tests {
     #[test]
     fn read_identifier() {
         test_lexer!(read_identifier, [
-            "allo-ne me lit pas" => ok "allo",
+            "allo-ne me lit pas" => some "allo",
         ]);
     }
 
     #[test]
     fn read_identifier_with_question_mark() {
         test_lexer!(read_identifier, [
-            "test? allo" => ok "test?",
+            "test? allo" => some "test?",
         ]);
     }
 
