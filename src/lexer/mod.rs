@@ -503,11 +503,11 @@ mod tests {
             Token,
             TokenType::{self, *},
             Boolean::{self, *},
-            Number::{Self, *},
+            Number::{self, *},
         };
 
-        test_lexer!(read_token, [
-        ])
+//        test_lexer!(read_token, [
+//        ])
     }
 }
 
