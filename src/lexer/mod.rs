@@ -20,8 +20,6 @@ pub struct Lexer<'a> {
     current_char: Option<char>,
     /// Lexème courant dans le vecteur de token
     current_token: Option<Token>,
-    /// Vecteur contenant les erreurs rencontrés
-    errors: Vec<Error>,
     /// L'entrée à parse, une séquence de caractères itérable
     input: Peekable<Chars<'a>>,
     /// Position actuelle dans le programme
@@ -42,7 +40,6 @@ impl<'a> Lexer<'a> {
         Lexer {
             current_char: None,
             current_token: None,
-            errors: Vec::new(),
             input: input.chars().peekable(),
             position: Position { column: 0, line: 1 },
         }
@@ -180,6 +177,7 @@ impl<'a> Lexer<'a> {
                 _ => token!(Illegal(ch.to_string()), self.position),
             }
         }
+
     }
 
     /// Getter pour la position du lexer dans la séquence
@@ -196,11 +194,14 @@ impl<'a> Lexer<'a> {
 
     /// Renvoie une erreur de type `Error::UnexpectedSymbol`
     #[inline]
-    fn expect_char(&mut self, exp: char, unexp: Option<char>) {
+    fn expect_char(&self, exp: char, unexp: Option<char>) -> LResult<()> {
         if unexp != Some(exp) {
             let unexp = unexp.unwrap_or('\0').to_owned();
             let err = Error::UnexpectedSymbol { exp, unexp, pos: self.position };
-            self.errors.push(err);
+            Err(err)
+        }
+        else {
+            Ok(())
         }
     }
 
@@ -389,9 +390,9 @@ mod tests {
         );
 
         // test_lexer!(fn_name, ["" => "", "" => ""])
-        (@inner $fn_name:ident,
-            $( $input:expr, $result:expr, )+
-        ) => (
+        ($fn_name:ident, [
+            $( $input:expr => $result:expr, )+
+        ]) => (
             $(
                 test_lexer!(@decl lexer, $input);
                 test_lexer!(@assert $fn_name, lexer, $result);
@@ -399,42 +400,14 @@ mod tests {
         );
 
         // test_lexer!(fn_name, 6, ["" => "", "" => ""]
-        (@inner-num $fn_name:ident, $skip_amount:expr,
-            $( $input:expr, $result:expr, )+
-        ) => (
+        ($fn_name:ident, $skip_amount:expr, [
+            $( $input:expr => $result:expr, )+
+        ]) => (
             $(
                 test_lexer!(@decl lexer, $input);
                 test_lexer!(@do lexer, $skip_amount);
                 test_lexer!(@assert $fn_name, lexer, $result);
             )*
-        );
-
-        // test_lexer!(fn_name, ["" => some "", "" => some ""])
-        ($fn_name:ident, [
-            $( $input:expr => ok $result:expr, )+
-        ]) => (
-            test_lexer!(@inner $fn_name, $($input, Ok($result.to_string()),)*);
-        );
-
-        // test_lexer!(fn_name, ["" => "", "" => ""])
-        ($fn_name:ident, [
-            $( $input:expr => $result:expr, )+
-        ]) => (
-            test_lexer!(@inner $fn_name, $($input, $result,)*);
-        );
-
-        // test_lexer!(fn_name, 1, ["" => some "", "" => some ""])
-        ($fn_name:ident, $skip_amount:expr, [
-            $( $input:expr => ok $result:expr, )+
-        ]) => (
-            test_lexer!(@inner-num $fn_name, $skip_amount, $($input, Ok($result.to_string()),)*);
-        );
-
-        // test_lexer!(fn_name, 1, ["" => "", "" => ""])
-        ($fn_name:ident, $skip_amount:expr, [
-            $( $input:expr => $result:expr, )+
-        ]) => (
-            test_lexer!(@inner-num $fn_name, $skip_amount, $($input, $result,)*);
         );
     }
 
@@ -446,14 +419,15 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn position_newline() {
         test_lexer!(position, 4, [
-            "\r\n\r\n" => Position::new(2, 0),
-            "\n\n\r\n" => Position::new(3, 0),
-            "\n\r\n\r" => Position::new(3, 0),
-            "\r\r\r\n" => Position::new(3, 0),
-            "\n\n\n\n" => Position::new(4, 0),
-            "\r\r\r\r" => Position::new(4, 0),
+            "\r\n\r\n" => Position::new(2, 2),
+            "\n\n\r\n" => Position::new(3, 2),
+            "\n\r\n\r" => Position::new(3, 1),
+            "\r\r\r\n" => Position::new(3, 2),
+            "\n\n\n\n" => Position::new(4, 1),
+            "\r\r\r\r" => Position::new(4, 1),
         ]);
     }
 
@@ -461,7 +435,7 @@ mod tests {
     fn read_string() {
         test_lexer!(read_string, 6, [
             r#"voici "une longue chaîne de caractères valide"<-FIN"#
-                => ok r#""une longue chaîne de caractères valide""#,
+                => Ok(r#""une longue chaîne de caractères valide""#.to_string()),
         ]);
     }
 
@@ -469,16 +443,15 @@ mod tests {
     fn read_string_escaped() {
         test_lexer!(read_string, [
             r#""longue chaîne doublement \" échappé \\"<-FIN"#
-                => ok r#""longue chaîne doublement \" échappé \\""#,
+                => Ok(r#""longue chaîne doublement \" échappé \\""#.to_string()),
         ]);
     }
 
     #[test]
-    #[should_panic]
     fn read_string_newline() {
         test_lexer!(read_string, [
             "\"ouah j'ai un retour à la ligne juste ici ->\n\"<-FIN"
-                => ok "\"ouah j'ai un retour à la ligne juste ici ->\n\"",
+                => Err(Error::UnterminatedString(Position::new(1, 44))),
         ]);
     }
 
@@ -506,8 +479,7 @@ mod tests {
             Number::{self, *},
         };
 
-//        test_lexer!(read_token, [
-//        ])
+        unimplemented!()
     }
 }
 
