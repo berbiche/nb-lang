@@ -30,7 +30,6 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-
     /// Construit un Lexer depuis une chaîne de caractères
     pub fn new<S>(input: S) -> Self
         where
@@ -235,18 +234,15 @@ impl<'a> Lexer<'a> {
         let current = self.input.next();
 
         if let Some(current) = current {
-            if is_newline(&current) {
-                if let Some(previous) = previous {
-                    // si nous n'avons pas une séquence CRLF
-                    if !(previous == '\u{000D}' && current == '\u{000A}') {
-                        self.position.line += 1;
-                        self.position.column = 0;
-                    }
+            if let Some(previous) = previous {
+                // si nous n'avons pas une séquence CRLF
+                if is_newline(&previous) &&
+                    !(previous == '\u{000D}' && current == '\u{000A}') {
+                    self.position.line += 1;
+                    self.position.column = 0;
                 }
             }
-            else {
-                self.position.column += 1;
-            }
+            self.position.column += 1;
         }
 
         self.current_char = current;
@@ -315,17 +311,14 @@ impl<'a> Lexer<'a> {
         // nous devons connaître le caractère précédent pour savoir si échappé
         let mut previous_ch = '\0';
         // pour avoir la bonne position avec les newline
-        // TODO(berbiche): M'enlever une fois que le TODO du read() sera completé
-        let mut pos: Position = self.position;
         while let Some(current_ch) = self.read() {
             if is_newline(&current_ch) {
-                return Err(Error::UnterminatedString(pos))
+                return Err(Error::UnterminatedString(self.position))
             }
-            pos = self.position;
 
             // les caractères de contrôle sont interdits
             if current_ch.is_control() {
-                return Err(Error::InvalidString(st, pos))
+                return Err(Error::InvalidString(st, self.position))
             }
 
             st.push(current_ch);
@@ -388,7 +381,6 @@ mod tests {
     use super::*;
 
     // TODO(Nicolas): Me documenter
-    // TODO(Nicolas): Me réécrire sous forme d'un "TT-Muncher"
     macro_rules! test_lexer {
         (@decl $lexer:ident, $input:expr) => (let mut $lexer = Lexer::new($input););
 
@@ -456,7 +448,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn position_newline() {
         test_lexer!(position, 4, [
             "\r\n\r\n" => Position::new(2, 2),
@@ -485,10 +476,10 @@ mod tests {
     }
 
     #[test]
-    fn read_string_newline() {
+    fn read_string_with_newline_should_error() {
         test_lexer!(read_string, [
             "\"ouah j'ai un retour à la ligne juste ici ->\n\"<-FIN"
-                => Err(Error::UnterminatedString(Position::new(1, 44))),
+                => Err(Error::UnterminatedString(Position::new(1, 45))),
         ]);
     }
 
