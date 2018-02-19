@@ -36,13 +36,14 @@ impl<'a> Lexer<'a> {
         where
             S: Into<&'a str>,
     {
-        let input = input.into();
-        Lexer {
+        let mut lexer = Lexer {
             current_char: None,
             current_token: None,
-            input: input.chars().peekable(),
+            input: input.into().chars().peekable(),
             position: Position { column: 0, line: 1 },
-        }
+        };
+        lexer.read(); // avance au premier caractère
+        lexer
     }
 
     /// Construit le prochain `token::Token` et le renvoie
@@ -51,9 +52,17 @@ impl<'a> Lexer<'a> {
     // TODO: Convertir la plus part de cette tâche en celle d'un macro
     pub fn read_token(&mut self) -> LResult<Token> {
         use token::{TokenType::*, Keyword::{self, *}, Boolean::*, Number::*};
-        self.skip_whitespace();
 
-        match self.read() {
+        // saute les espaces blancs
+        // TODO: M'enlever une fois que le bug avec skip_whitespace sera résolu
+        loop {
+            match self.current_char {
+                Some(ch) if ch.is_whitespace() => self.read(),
+                _ => break,
+            };
+        }
+
+        let result = match self.current_char {
             None => token!(EOF, self.position),
             Some(ch) => match ch {
                 '+' => token!(Plus, self.position),
@@ -117,13 +126,14 @@ impl<'a> Lexer<'a> {
                     _ => token!(And, self.position),
                 },
                 ',' => token!(Comma, self.position),
+                ':' => token!(Colon, self.position),
                 ';' => token!(Semicolon, self.position),
                 '(' => token!(Lparen, self.position),
                 ')' => token!(Rparen, self.position),
-                '{' => token!(Lbracket, self.position),
-                '}' => token!(Rbracket, self.position),
-                '[' => token!(Lbrace, self.position),
-                ']' => token!(Rbrace, self.position),
+                '{' => token!(Lbrace, self.position),
+                '}' => token!(Rbrace, self.position),
+                '[' => token!(Lbracket, self.position),
+                ']' => token!(Rbracket, self.position),
                 '_' => token!(Underscore, self.position),
                 '"' => {
                     let begin = self.position;
@@ -176,8 +186,11 @@ impl<'a> Lexer<'a> {
                 },
                 _ => token!(Illegal(ch.to_string()), self.position),
             }
-        }
+        };
 
+        // avance au prochain caractère
+        self.read();
+        result
     }
 
     /// Getter pour la position du lexer dans la séquence
@@ -194,7 +207,7 @@ impl<'a> Lexer<'a> {
 
     /// Renvoie une erreur de type `Error::UnexpectedSymbol`
     #[inline]
-    fn expect_char(&self, exp: char, unexp: Option<char>) -> LResult<()> {
+    fn expect_char(&self, unexp: Option<char>, exp: char) -> LResult<()> {
         if unexp != Some(exp) {
             let unexp = unexp.unwrap_or('\0').to_owned();
             let err = Error::UnexpectedSymbol { exp, unexp, pos: self.position };
@@ -240,7 +253,8 @@ impl<'a> Lexer<'a> {
         self.current_char
     }
 
-    /// Permet de lire un identifiant contenant optionnellement un '?' (question mark) à la fin
+    /// Permet de lire un identifiant contenant optionnellement un '?'
+    /// (question mark) à la fin
     fn read_identifier(&mut self) -> String {
         let mut st: String = self.current_char.unwrap().to_string();
         {
@@ -335,7 +349,9 @@ impl<'a> Lexer<'a> {
     /// Saute les espaces-blancs, incluant le retour à la ligne
     #[inline]
     fn skip_whitespace(&mut self) {
-        self.input.by_ref().skip_while(|ch| ch.is_whitespace());
+        self.input
+            .by_ref()
+            .skip_while(|ch| ch.is_whitespace());
     }
 }
 
@@ -374,10 +390,7 @@ mod tests {
     // TODO(Nicolas): Me documenter
     // TODO(Nicolas): Me réécrire sous forme d'un "TT-Muncher"
     macro_rules! test_lexer {
-        (@decl $lexer:ident, $input:expr) => (
-            let mut $lexer = Lexer::new($input);
-            $lexer.read(); // initialiser 1er caractère
-        );
+        (@decl $lexer:ident, $input:expr) => (let mut $lexer = Lexer::new($input););
 
         (@assert $fn_name:ident, $lexer:ident, $result:expr) => (
             assert_eq!($result, $lexer.$fn_name());
@@ -407,6 +420,30 @@ mod tests {
                 test_lexer!(@decl lexer, $input);
                 test_lexer!(@do lexer, $skip_amount);
                 test_lexer!(@assert $fn_name, lexer, $result);
+            )*
+        );
+
+        ([ $( $input:expr => [ $( $e:expr ),+ ], )+ ]) => (
+            $(
+                test_lexer!(@decl lexer, $input);
+                let expected: &[TokenType] = &[ $($e.into()),* ];
+                let mut tokens = Vec::new();
+                loop {
+                    match lexer.read_token() {
+                        Ok(token) => match token.token_type() {
+                            EOF => break,
+                            _ => tokens.push(token),
+                        },
+                        Err(error) => panic!("Erreur: {:?}", error),
+                    };
+                }
+
+                let token_types: Vec<_> = tokens.iter()
+                    .map(|token| token.token_type())
+                    .cloned()
+                    .collect();
+
+                assert_eq!(expected, &token_types[..]);
             )*
         );
     }
@@ -470,16 +507,51 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn tokenize() {
         use token::{
             Token,
             TokenType::{self, *},
+            Keyword::{self, *},
+            ReservedKeyword::{self, *},
             Boolean::{self, *},
             Number::{self, *},
         };
 
-        unimplemented!()
+        test_lexer!([
+            "let input = 5;" => [
+                Let,
+                Identifier("input".to_string()),
+                Eq,
+                Decimal("5".to_string()),
+                Semicolon
+            ],
+            "fun fonction() { allo }" => [
+                Fun,
+                Identifier("fonction".to_string()),
+                Lparen,
+                Rparen,
+                Lbrace,
+                Identifier("allo".to_string()),
+                Rbrace
+            ],
+            "struct Nicolas {
+                x: int,
+                y: int,
+            }" => [
+                Struct,
+                Identifier("Nicolas".to_string()),
+                Lbrace,
+                Identifier("x".to_string()),
+                Colon,
+                Identifier("int".to_string()),
+                Comma,
+                Identifier("y".to_string()),
+                Colon,
+                Identifier("int".to_string()),
+                Comma,
+                Rbrace
+            ],
+        ]);
     }
 }
 

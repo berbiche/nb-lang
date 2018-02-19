@@ -58,6 +58,14 @@ impl Token {
             location: loc,
         }
     }
+
+    pub fn token_type(&self) -> &TokenType {
+        &self.token_type
+    }
+
+    pub fn location(&self) -> &PositionOrSpan {
+        &self.location
+    }
 }
 
 macro_rules! token {
@@ -100,13 +108,14 @@ pub enum TokenType {
     AndAnd, // &&
 
     Comma,     // ,
+    Colon,     // :
     Semicolon, // ;
     Lparen,    // (
     Rparen,    // )
-    Lbracket,  // {
-    Rbracket,  // }
-    Lbrace,    // [
-    Rbrace,    // ]
+    Lbracket,  // [
+    Rbracket,  // ]
+    Lbrace,    // {
+    Rbrace,    // }
 
     Illegal(String),
     Identifier(String), // abcdef
