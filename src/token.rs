@@ -13,7 +13,7 @@ static KEYWORDS: phf::Map<&'static str, Keyword> = phf_map! {
     "class" => Reserved(Class),
     "const" => Const,
     "continue" => Continue,
-    "do" => Do,
+    "do" => Reserved(Do),
     "final" => Reserved(Final),
     "else" => Else,
     "elseif" => Elseif,
@@ -102,8 +102,8 @@ pub enum TokenType {
     LtEq,  // <=
     GtEq,  // >=
 
-    Or, // |
-    And, // &
+    Or,     // |
+    And,    // &
     OrOr,   // ||
     AndAnd, // &&
 
@@ -144,13 +144,13 @@ impl From<Number> for TokenType {
     }
 }
 
+/// Mot-clés du langage
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Keyword {
     Reserved(ReservedKeyword),
     Break,
     Const,
     Continue,
-    Do,
     Else,
     Elseif,
     Fun,
@@ -175,6 +175,7 @@ pub enum ReservedKeyword {
     Array,
     Case,
     Class,
+    Do,
     Export,
     Final,
     Import,
