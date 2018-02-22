@@ -13,12 +13,12 @@
 .project
 .settings/
 .valgrindrc
-src/**/build
 /llvm
-src/**/target
-src/**/tmp
-src/**/out
-src/**/dist
+tmp/
+/target
+build/
+out/
+dist/
 /*.nb
 
 **/*.rs.bk

@@ -1,0 +1,10 @@
+[package]
+name = "nb-std"
+version = "0.1.0"
+authors = ["berbiche <nic.berbiche@gmail.com>"]
+
+[lib]
+name = "nb_std"
+path = "lib.rs"
+
+[dependencies]

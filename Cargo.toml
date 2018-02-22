@@ -1,0 +1,12 @@
+[package]
+name = "nb"
+version = "0.1.0"
+authors = ["berbiche <nic.berbiche@gmail.com>"]
+publish = false
+
+[dependencies]
+nb-parser = { path = "src/parser" }
+nb-std = { path = "src/std" }
+
+[workspace]
+members = ["src/parser", "src/std"]

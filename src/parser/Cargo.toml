@@ -1,7 +1,11 @@
 [package]
 name = "nb-parser"
 version = "0.1.0"
-authors = ["Nicolas Berbiche"]
+authors = ["berbiche <nic.berbiche@gmail.com>"]
+
+[lib]
+name = "nb_parser"
+path = "lib.rs"
 
 [dependencies]
 failure = "0.1.1"
