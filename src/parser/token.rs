@@ -45,7 +45,7 @@ static KEYWORDS: phf::Map<&'static str, Keyword> = phf_map! {
 };
 
 /// Représente un lexème dans le programme
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Token {
     token_type: TokenType,
     location: PositionOrSpan,
@@ -59,12 +59,20 @@ impl Token {
         }
     }
 
+    #[inline]
     pub fn token_type(&self) -> &TokenType {
         &self.token_type
     }
 
+    #[inline]
     pub fn location(&self) -> &PositionOrSpan {
         &self.location
+    }
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unimplemented!()
     }
 }
 
@@ -82,18 +90,19 @@ macro_rules! token {
     }};
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum TokenType {
     EOF,
     Underscore, // _
 
-    Eq,       // =
-    Plus,     // +
-    Minus,    // -
-    Division, // /
-    Modulo,   // %
-    Power,    // ^
-    Not,      // !
+    Eq,             // =
+    Plus,           // +
+    Minus,          // -
+    Division,       // /
+    Multiplication, // *
+    Modulo,         // %
+    Power,          // ^
+    Not,            // !
 
     EqEq,  // ==
     NotEq, // !=
@@ -145,7 +154,7 @@ impl From<Number> for TokenType {
 }
 
 /// Mot-clés du langage
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Keyword {
     Reserved(ReservedKeyword),
     Break,
@@ -169,7 +178,7 @@ impl Keyword {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ReservedKeyword {
     Alias,
     Array,
@@ -197,13 +206,13 @@ pub enum ReservedKeyword {
     Yield,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Boolean {
     True,
     False,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Number {
     Binary(String),
     Decimal(String),
@@ -260,8 +269,8 @@ impl fmt::Display for Position {
 /// Représente une gamme de caractères
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Span {
-    begin: Position,
-    end: Position,
+    pub(crate) begin: Position,
+    pub(crate) end: Position,
 }
 
 impl Span {
@@ -276,14 +285,14 @@ impl Span {
     /// Étend une gamme `Span` jusqu'à une position `Position`
     /// Renvoie `Result` indiquant le succès de l'opération.
     /// Renvoie `Err` si la position `rhs` est avant la fin de la gamme.
-    pub(crate) fn extend_to(&mut self, rhs: Position) -> Result<(), ()> {
+    pub(crate) fn extend_to(self, rhs: Position) -> Result<Self, ()> {
         use std::cmp::Ordering::*;
         match self.end.cmp(&rhs) {
-            Less => {
-                self.end = rhs;
-                Ok(())
-            },
-            Equal => Ok(()),
+            Less => Ok(Span {
+                begin: self.begin,
+                end: rhs,
+            }),
+            Equal => Ok(self),
             Greater => Err(()),
         }
     }
@@ -311,5 +320,15 @@ impl convert::From<self::Span> for PositionOrSpan {
 impl convert::From<self::Position> for PositionOrSpan {
     fn from(pos: Position) -> Self {
         PositionOrSpan::Position(pos)
+    }
+}
+
+impl fmt::Display for PositionOrSpan {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::PositionOrSpan::*;
+        match *self {
+            Position(ref pos) => fmt::Display::fmt(pos, f),
+            Span(ref span) => fmt::Display::fmt(span, f),
+        }
     }
 }

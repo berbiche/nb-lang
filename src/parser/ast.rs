@@ -5,6 +5,22 @@ use token::*;
 use std::fmt;
 use itertools::Itertools;
 
+
+/// Représente le programme
+pub struct Program {
+    /// Les énoncés formant le programme
+    statements: Vec<Box<Statement>>,
+}
+
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for stmt in &self.statements {
+            fmt::Display::fmt(stmt, f)?;
+        }
+        Ok(())
+    }
+}
+
 /// Un block est composé de plusieurs énoncés.
 /// En dû temps, un `Block` pourra être une expression.
 #[derive(Clone, Debug, PartialEq)]

@@ -5,7 +5,7 @@ use itertools::Itertools;
 
 use std::iter::Peekable;
 use std::result;
-use std::str::Chars;
+use std::str::{Chars, FromStr};
 use std::vec::Vec;
 
 pub mod error;
@@ -68,6 +68,7 @@ impl<'a> Lexer<'a> {
                 '-' => token!(Minus, self.position),
                 '%' => token!(Modulo, self.position),
                 '^' => token!(Power, self.position),
+                '*' => token!(Multiplication, self.position),
                 '/' => match self.peek() {
                     Some(&ch) if ch == '*' => { // commentaire
                         let begin = self.position;
@@ -156,7 +157,7 @@ impl<'a> Lexer<'a> {
                         }
                     }
                 },
-                ch if is_digit(&ch) => { // lit un nombre décimal/octal/etc.
+                ch if ch.is_decimal_digit() => { // lit un nombre décimal/octal/etc.
                     let begin = self.position;
                     match (ch, self.peek()) {
                         ('0', Some(&peeked)) => match &peeked {
@@ -202,19 +203,6 @@ impl<'a> Lexer<'a> {
     #[inline]
     fn current_char_is(&self, other: char) -> bool {
         self.current_char == Some(other)
-    }
-
-    /// Renvoie une erreur de type `Error::UnexpectedSymbol`
-    #[inline]
-    fn expect_char(&self, unexp: Option<char>, exp: char) -> LResult<()> {
-        if unexp != Some(exp) {
-            let unexp = unexp.unwrap_or('\0').to_owned();
-            let err = Error::UnexpectedSymbol { exp, unexp, pos: self.position };
-            Err(err)
-        }
-        else {
-            Ok(())
-        }
     }
 
     /// Permet de voir le prochain caractère sans consommer le caractère
@@ -294,7 +282,7 @@ impl<'a> Lexer<'a> {
     #[inline]
     fn read_number(&mut self) -> String {
         let mut st = self.current_char.unwrap().to_string();
-        let iter = self.input.peeking_take_while(|ch| is_hex(ch) || *ch == '_');
+        let iter = self.input.peeking_take_while(|ch| ch.is_hexadecimal_digit() || *ch == '_');
         st.extend(iter);
         st
     }
@@ -313,12 +301,12 @@ impl<'a> Lexer<'a> {
         // pour avoir la bonne position avec les newline
         while let Some(current_ch) = self.read() {
             if is_newline(&current_ch) {
-                return Err(Error::UnterminatedString(self.position))
+                return Err(Error::UnterminatedString(self.position.into()))
             }
 
             // les caractères de contrôle sont interdits
             if current_ch.is_control() {
-                return Err(Error::InvalidString(st, self.position))
+                return Err(Error::InvalidString(st, self.position.into()))
             }
 
             st.push(current_ch);
@@ -336,7 +324,7 @@ impl<'a> Lexer<'a> {
             previous_ch = current_ch;
         }
 
-        Err(Error::UnexpectedEOF(self.position))
+        Err(Error::UnexpectedEOF(self.position.into()))
     }
 
     /// Saute les espaces-blancs, incluant le retour à la ligne
@@ -348,23 +336,35 @@ impl<'a> Lexer<'a> {
     }
 }
 
-/// Renvoie si le caractère actuel est un chiffre décimal
-#[inline]
-fn is_digit(ch: &char) -> bool {
-    ch.is_digit(10)
+/*
+    Fonctions privées, simplement des raccourçis
+*/
+trait IsDigit {
+    /// Renvoie si le caractère actuel est un chiffre décimal
+    fn is_decimal_digit(&self) -> bool;
+    /// Renvoie si le caractère actuel est un chiffre octal
+    fn is_octal_digit(&self) -> bool;
+    /// Renvoie si le caractère actuel est un chiffre hexadécimal
+    fn is_hexadecimal_digit(&self) -> bool;
 }
 
-/// Renvoie si le caractère actuel est un chiffre hexadécimal
-#[inline]
-fn is_hex(ch: &char) -> bool {
-    ch.is_digit(16)
+impl IsDigit for char {
+    #[inline]
+    fn is_decimal_digit(&self) -> bool {
+        self.is_digit(10)
+    }
+
+    #[inline]
+    fn is_octal_digit(&self) -> bool {
+        self.is_digit(8)
+    }
+
+    #[inline]
+    fn is_hexadecimal_digit(&self) -> bool {
+        self.is_digit(16)
+    }
 }
 
-/// Renvoie si le caractère actuel est un chiffre octal
-#[inline]
-fn is_octal(ch: &char) -> bool {
-    ch.is_digit(8)
-}
 
 /// Renvoie `true` si le caractère est une fin de ligne
 /// Supporte les fins de ligne de plusieurs OS
@@ -479,7 +479,7 @@ mod tests {
     fn read_string_with_newline_should_error() {
         test_lexer!(read_string, [
             "\"ouah j'ai un retour à la ligne juste ici ->\n\"<-FIN"
-                => Err(Error::UnterminatedString(Position::new(1, 45))),
+                => Err(Error::UnterminatedString(Position::new(1, 45).into())),
         ]);
     }
 
