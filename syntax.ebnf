@@ -1,0 +1,238 @@
+(*
+  Syntaxe pour le langage de programmation NB
+  Utilise la syntaxe du standard ISO/IEC 14977
+  Auteur: Nicolas Berbiche
+  Date: 2018-01-24
+*)
+programme = { enonce } ;
+
+(* Début définitions générales *)
+espace = commentaire | escape_blanc ;
+espace_blanc = ' ' | tabulation | nouvelle_ligne ;
+nouvelle_ligne = ? '\n' | '\r' ? ;
+tabulation = ? '\t' ? ;
+caractere_valide = ? unicode excluant caracteres de controle, symboles du langage et point d’interrogation ? ;
+chiffre_decimal_excluant_zero = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+chiffre_decimal = '0' | chiffre_decimal_excluant_zero ;
+signe = '+' | '-' ;
+separateur_chiffre = '_' ;
+valeur_literale = booleen | nombre | chaine_caracteres | array ; (* toute valeur pouvant être définit 'inline' *)
+(* FIN définitions générales *)
+
+commentaire = commentaire_ligne | commentaire_bloc ;
+commentaire_ligne = '//', { charactere_valide }, fin_de_ligne ;
+commentaire_bloc = '/*', { caractere_valide | espace_blanc }, '*/';
+
+symboles = symboles_expression | symboles_commentaire ;
+symboles_expression = symboles_operation | symboles_comparaison ;
+symboles_operation = '+' | '-' | '^' | '*' | '/' ;
+symboles_comparaison = '<' | '>' | '<=' | '>=' | '!=' | '==' | '||' | '&&' ;
+symboles_commentaire = '//' | '/*' | '*/' ;
+
+
+(* tous les mot-clés du langage, incluant plusieurs non utilisés *)
+mot_cle
+    = 'alias'
+    | 'array'
+    | 'break'
+    | 'case'
+    | 'class'
+    | 'const'
+    | 'continue'
+    | 'do'
+    | 'else'
+    | 'elseif'
+    | 'export'
+    | 'fun'
+    | 'if'
+    | 'import'
+    | 'in'
+    | 'let'
+    | 'of'
+    | 'private'
+    | 'protected'
+    | 'pub'
+    | 'public'
+    | 'return'
+    | 'static'
+    | 'struct'
+    | 'switch'
+    | 'unless'
+    | 'use'
+    | 'while'
+    | types_primitifs
+    | modificateur_visibilite
+    ;
+modificateur_visibilite = 'pub' ;
+
+(* identifiant valide dans le langage *)
+identifiant = charactere_valide, { charactere_valide }, [ '?' ] ;
+identifiant_type
+    = '[', identifiant, [ ',', nombre_decimal_entier], ']'
+    | identifiant, [ identifiant_type_partie_polymorphique ]
+    ;
+identifiant_type_partie_polymorphique = '<', liste_identifiant_avec_types, '>' ;
+
+(* toute chose qui peut etre représenté sous forme de liste: array, parametres, etc. *)
+liste_literale = liste_literale_element, { ',', liste_literale_element } ;
+liste_literale_element_sans_expression = liste_literale_element - expression ;
+liste_literale_element = identifiant | valeur_literale | expression ;
+
+liste_identifiant_sans_types = identifiant, { ',', identifiant } ;
+liste_identifiant_avec_types = identifiant_type, { ',', identifiant_type } ;
+
+(* Début énoncés *)
+enonce
+    = declaration
+    | enonce_assignation_variable_declaree
+    | enonce_condition
+    | enonce_boucles
+    | enonce_fonction_retour
+    | enonce_fonction_appele
+    ;
+enonce_bloc = '{', { enonce }, '}' ;
+
+enonce_assignation_variable_declaree = identifiant, assignation, ';' ;
+
+enonce_condition
+    = 'if' | 'unless'
+    , expression_condition
+    , enonce_bloc
+    , { condition_elseif }
+    , [ condition_else ]
+    ;
+condition_elseif = 'elseif', expression_condition, enonce_bloc ;
+condition_else = 'else', [ espace ], enonce_bloc ;
+
+enonce_fonction_retour = 'return', expression, ';' ;
+enonce_fonction_appele = expression_appele_fonction, ';' ;
+
+enonce_boucles
+    = [identifiant, ':']
+    , (enonce_boucles_for | enonce_boucles_while | enonce_boucles_continue_break)
+    ;
+enonce_boucles_for = 'for', '(', enonce_boucles_for_conditions, ')', enonce_bloc ;
+enonce_boucles_for_conditions
+    = [ declaration_variable | assignation ]
+    , ';'
+    , [ expression_condition ]
+    , ';'
+    , [ assignation | expression ]
+    ;
+enonce_boucles_while
+    = 'while'
+    , '('
+    , expression_condition
+    , ')'
+    , enonce_bloc
+    ;
+enonce_boucles_continue_break = 'continue' | 'break' , ';' ;
+(* FIN énonces *)
+
+(* Début déclarations *)
+declaration = declaration_variable | declaration_fonction | declaration_structure ;
+
+declaration_variable
+    = variable_declaration_mot_cle
+    , identifiant
+    , [ variable_type ]
+    , assignation
+    , ';'
+    ;
+
+(* fun est_pair(nombre: int) -> bool { return nombre % 2; } *)
+declaration_fonction
+    = [ modificateur_visibilite ]
+    , 'fun'
+    , identifiant
+    , fonction_parametres
+    , [ fonction_retour ]
+    , enonce_bloc
+    ;
+
+declaration_structure
+    = 'struct'
+    , identifiant
+    , [ identifiant_type_partie_polymorphique ]
+    , structure_corps
+    ;
+
+assignation = '=', assignation_valeur ;
+assignation_valeur = valeur_literale | expression ;
+
+variable_type = ':', identifiant_type ;
+variable_declaration_mot_cle = 'let' | 'const' ;
+
+fonction_parametres = '(', [ liste_identifiant_avec_types ], ')' ;
+fonction_retour = '->', identifiant_type ;
+
+structure_corps = '{', { structure_identifiant }, '}' ;
+structure_identifiant
+    = [ modificateur_visibilite ]
+    , identifiant
+    , ':'
+    , identifiant_type
+    , ','
+    ;
+(* FIN déclarations *)
+
+(* Début expressions *)
+expression
+    = identifiant
+    | expression_appele_fonction
+    | expression_condition
+    | valeur_literale
+    | expression, symboles_expression, expression
+    ;
+
+expression_appele_fonction = identifiant, '(', [ liste_literale ], ')' ;
+(* FIN expressions *)
+
+
+(* Début types *)
+types_primitifs
+    = 'bool'
+    | 'char'
+    | 'double'
+    | 'float'
+    | 'int'
+    | 'long'
+    | 'string'
+    | 'void'
+    ;
+
+(* Nombres *)
+nombre
+    = [ signe ], nombre_decimal_reel
+    | '0x', nombre_hexadecimal
+    | '0o', nombre_octal
+    | '0b', nombre_binaire
+    ;
+
+nombre_decimal_reel = nombre_decimal_entier, [ '.', nombre_decimal_entier ] ;
+nombre_decimal_entier = chiffre_decimal | nombre_decimal_entier, { separateur_chiffre }, chiffre_decimal ;
+
+nombre_hexadecimal = chiffre_hexadecimal | nombre_hexadecimal, { separateur_chiffre }, chiffre_hexadecimal ;
+chiffre_hexadecimal = chiffre_decimal | lettre_hexadecimale ;
+lettre_hexadecimale = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' ;
+
+nombre_octal = chiffre_octal | nombre_octal, { separateur_chiffre }, chiffre_octal ;
+chiffre_octal = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' ;
+
+nombre_binaire = chiffre_binaire | nombre_binaire, { separateur_chiffre }, chiffre_binaire ;
+chiffre_binaire = '0' | '1' ;
+
+(* booléen *)
+booleen = 'true' | 'false' ;
+
+(* chaîne de caractères *)
+chaine_caracteres = caractere_definition_chaine, { caractere_chaine_valide }, caractere_definition_chaine ;
+caractere_definition_chaine = '"' ;
+
+caractere_chaine_valide = caractere_valide | caractere_echappe ;
+caractere_echappe = '\"' | caractere_controle ;
+caractere_controle = ? '\n' | '\t' | '\\' | '\0' ? ;
+
+(* array *)
+array = '[', liste_literale, ']' ;
+(* FIN types *)
