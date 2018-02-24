@@ -8,11 +8,11 @@ use self::{Keyword::*, ReservedKeyword::*};
 static KEYWORDS: phf::Map<&'static str, Keyword> = phf_map! {
     "alias" => Reserved(Alias),
     "array" => Reserved(Array),
-    "break" => Break,
+    "break" => Reserved(Break),
     "case" => Reserved(Case),
     "class" => Reserved(Class),
     "const" => Const,
-    "continue" => Continue,
+    "continue" => Reserved(Continue),
     "do" => Reserved(Do),
     "final" => Reserved(Final),
     "else" => Else,
@@ -33,7 +33,7 @@ static KEYWORDS: phf::Map<&'static str, Keyword> = phf_map! {
     "pure" => Reserved(Pure),
     "return" => Return,
     "static" => Reserved(Static),
-    "struct" => Struct,
+    "struct" => Reserved(Struct),
     "switch" => Reserved(Switch),
     "this" => Reserved(This),
     "trait" => Reserved(Trait),
@@ -47,8 +47,8 @@ static KEYWORDS: phf::Map<&'static str, Keyword> = phf_map! {
 /// Représente un lexème dans le programme
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Token {
-    token_type: TokenType,
-    location: PositionOrSpan,
+    pub(crate) token_type: TokenType,
+    pub(crate) location: PositionOrSpan,
 }
 
 impl Token {
@@ -94,6 +94,7 @@ macro_rules! token {
 pub enum TokenType {
     EOF,
     Underscore, // _
+    Arrow, // ->
 
     Eq,             // =
     Plus,           // +
@@ -130,7 +131,7 @@ pub enum TokenType {
     Identifier(String), // abcdef
     Comment(String),
     Keyword(Keyword),
-    Boolean(Boolean),
+    Boolean(bool),
     Literal(String),
     Number(Number),
 }
@@ -138,12 +139,6 @@ pub enum TokenType {
 impl From<Keyword> for TokenType {
     fn from(keyword: Keyword) -> Self {
         TokenType::Keyword(keyword)
-    }
-}
-
-impl From<Boolean> for TokenType {
-    fn from(boolean: Boolean) -> Self {
-        TokenType::Boolean(boolean)
     }
 }
 
@@ -157,16 +152,13 @@ impl From<Number> for TokenType {
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Keyword {
     Reserved(ReservedKeyword),
-    Break,
     Const,
-    Continue,
     Else,
     Elseif,
     Fun,
     If,
     Let,
     Return,
-    Struct,
     Unless,
     While,
 }
@@ -182,8 +174,10 @@ impl Keyword {
 pub enum ReservedKeyword {
     Alias,
     Array,
+    Break,
     Case,
     Class,
+    Continue,
     Do,
     Export,
     Final,
@@ -198,18 +192,13 @@ pub enum ReservedKeyword {
     Public,
     Pure,
     Static,
+    Struct,
     Switch,
     This,
     Trait,
     Use,
     Virtual,
     Yield,
-}
-
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum Boolean {
-    True,
-    False,
 }
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
