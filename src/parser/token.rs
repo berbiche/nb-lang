@@ -45,11 +45,18 @@ static KEYWORDS: phf::Map<&'static str, Keyword> = phf_map! {
 };
 
 /// Représente un lexème dans le programme
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Hash, Ord, PartialOrd)]
 pub struct Token {
     pub(crate) token_type: TokenType,
     pub(crate) location: PositionOrSpan,
 }
+
+impl PartialEq for Token {
+    fn eq(&self, other: &Token) -> bool {
+        self.token_type == other.token_type
+    }
+}
+impl Eq for Token {}
 
 impl Token {
     pub(crate) fn new(token_type: TokenType, loc: PositionOrSpan) -> Self {
@@ -72,7 +79,7 @@ impl Token {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        unimplemented!()
+        write!(f, "{}", &self.token_type)
     }
 }
 
@@ -134,6 +141,22 @@ pub enum TokenType {
     Boolean(bool),
     Literal(String),
     Number(Number),
+}
+
+impl fmt::Display for TokenType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::TokenType::*;
+        use self::Number::*;
+        match self {
+            Illegal(st) | Identifier(st) | Comment(st) | Literal(st) => write!(f, "{}", st),
+            Keyword(keyword) => write!(f, "{:?}", keyword),
+            Number(num) => match num {
+                Binary(st) | Octal(st) | Hexadecimal(st) | Decimal(st) => write!(f, "{}", st)
+            }
+            Boolean(bl) => write!(f, "{}", bl),
+            token_type => write!(f, "{:?}", token_type),
+        }
+    }
 }
 
 impl From<Keyword> for TokenType {
