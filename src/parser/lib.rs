@@ -5,6 +5,7 @@
 #![feature(trace_macros)]
 #![feature(match_default_bindings)]
 #![feature(box_syntax)]
+#![feature(nll)]
 
 #![feature(plugin)]
 #![plugin(phf_macros)]
