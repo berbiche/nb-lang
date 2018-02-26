@@ -50,7 +50,7 @@ impl<'a> Lexer<'a> {
     /// Validation minimale se fait ici, c'est-à-dire que les nombres ne sont pas validés
     // TODO: Convertir la plus part de cette tâche en celle d'un macro
     pub fn read_token(&mut self) -> LResult<Token> {
-        use token::{TokenType::*, Keyword::{self, *}, Boolean::*, Number::*};
+        use token::{TokenType::*, Keyword::{self, *}, Number::*};
 
         // saute les espaces blancs
         // TODO: M'enlever une fois que le bug avec skip_whitespace sera résolu
@@ -65,10 +65,17 @@ impl<'a> Lexer<'a> {
             None => token!(EOF, self.position),
             Some(ch) => match ch {
                 '+' => token!(Plus, self.position),
-                '-' => token!(Minus, self.position),
                 '%' => token!(Modulo, self.position),
                 '^' => token!(Power, self.position),
                 '*' => token!(Multiplication, self.position),
+                '-' => match self.peek() {
+                    Some(&ch) if ch == '>' => {
+                        let begin = self.position;
+                        self.read();
+                        token!(Arrow, begin => self.position)
+                    },
+                    _ => token!(Minus, self.position),
+                },
                 '/' => match self.peek() {
                     Some(&ch) if ch == '*' => { // commentaire
                         let begin = self.position;
@@ -145,10 +152,10 @@ impl<'a> Lexer<'a> {
                     let ident = self.read_identifier();
 
                     if ident == "true" {
-                        token!(True, begin => self.position)
+                        token!(Boolean(true), begin => self.position)
                     }
                     else if ident == "false" {
-                        token!(False, begin => self.position)
+                        token!(Boolean(false), begin => self.position)
                     }
                     else {
                         match Keyword::lookup(ident.as_ref()) {
@@ -163,20 +170,17 @@ impl<'a> Lexer<'a> {
                         ('0', Some(&peeked)) => match &peeked {
                             'b' => { // binaire
                                 self.read();
-                                let mut st = "0b".to_string();
-                                st.push_str(&self.read_number());
+                                let st = self.read_number();
                                 token!(Binary(st), begin => self.position)
                             },
                             'o' => { // octal
                                 self.read();
-                                let mut st = "0b".to_string();
-                                st.push_str(&self.read_number());
+                                let st = self.read_number();
                                 token!(Octal(st), begin => self.position)
                             },
                             'x' => { // hexadécimal
                                 self.read();
-                                let mut st = "0b".to_string();
-                                st.push_str(&self.read_number());
+                                let st = self.read_number();
                                 token!(Hexadecimal(st), begin => self.position)
                             },
                             _ => token!(Decimal(self.read_number()), begin => self.position),
@@ -504,7 +508,6 @@ mod tests {
             TokenType::{self, *},
             Keyword::{self, *},
             ReservedKeyword::{self, *},
-            Boolean::{self, *},
             Number::{self, *},
         };
 
@@ -525,23 +528,23 @@ mod tests {
                 Identifier("allo".to_string()),
                 Rbrace
             ],
-            "struct Nicolas {
-                x: int,
-                y: int,
-            }" => [
-                Struct,
-                Identifier("Nicolas".to_string()),
-                Lbrace,
-                Identifier("x".to_string()),
-                Colon,
-                Identifier("int".to_string()),
-                Comma,
-                Identifier("y".to_string()),
-                Colon,
-                Identifier("int".to_string()),
-                Comma,
-                Rbrace
-            ],
+//            "struct Nicolas {
+//                x: int,
+//                y: int,
+//            }" => [
+//                Struct,
+//                Identifier("Nicolas".to_string()),
+//                Lbrace,
+//                Identifier("x".to_string()),
+//                Colon,
+//                Identifier("int".to_string()),
+//                Comma,
+//                Identifier("y".to_string()),
+//                Colon,
+//                Identifier("int".to_string()),
+//                Comma,
+//                Rbrace
+//            ],
         ]);
     }
 }

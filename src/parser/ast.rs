@@ -7,9 +7,18 @@ use itertools::Itertools;
 
 
 /// Représente le programme
+/// Est le noeud racine de l'`ast`
 pub struct Program {
     /// Les énoncés formant le programme
-    statements: Vec<Box<Statement>>,
+    pub(crate) statements: Vec<Box<Statement>>,
+}
+
+impl Program {
+    pub fn new() -> Self {
+        Program {
+            statements: Vec::new(),
+        }
+    }
 }
 
 impl fmt::Display for Program {
@@ -45,121 +54,71 @@ pub enum Statement {
     /// - 1: La valeur qui est assignée,
     Assignment(Variable, Box<Expression>),
     /// Une clause peut se retrouver dans ou en-dehors d'une expression
-    Conditional(ConditionalStatement),
-    Loop(LoopStatement),
+    Conditional(Keyword, Option<Box<Expression>>, Box<Block>),
+    /// Déclaration de fonction
+    FunDeclaration(FunctionDeclaration),
+    /// Une boucle
+    Loop(Keyword, Option<Box<Expression>>, Box<Block>),
+    /// Une expression
     Expression(Box<Expression>),
     /// La valeur de retour est une `Expression` ou `None`
     Return(Option<Box<Expression>>),
-    VariableDeclaration(VariableDeclaration),
-}
-
-impl From<ConditionalStatement> for Statement {
-    fn from(val: ConditionalStatement) -> Self {
-        Statement::Conditional(val)
-    }
-}
-
-impl From<LoopStatement> for Statement {
-    fn from(val: LoopStatement) -> Self {
-        Statement::Loop(val)
-    }
-}
-
-impl From<VariableDeclaration> for Statement {
-    fn from(val: VariableDeclaration) -> Self {
-        Statement::VariableDeclaration(val)
-    }
+    /// Déclaration de variable
+    /// - 0: si c'est un `let`, `const`, etc.
+    /// - 1: le sujet de la déclaration
+    /// - 2: la valeur assignée
+    VariableDeclaration(Keyword, Variable, Box<Expression>),
 }
 
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Statement::*;
+        use token::TokenType::*;
         match *self {
             Assignment(ref var, ref exp) => {
+                writeln!(f, "");
                 fmt::Display::fmt(var, f)?;
                 write!(f, " = ")?;
                 fmt::Display::fmt(exp, f)?;
                 writeln!(f, ";")
             },
-            Conditional(ref cond) => fmt::Display::fmt(cond, f),
-            Loop(ref looping) => fmt::Display::fmt(looping, f),
+            Conditional(ref keyword, ref expr, ref body) => {
+                writeln!(f, "");
+                write!(f, "{token} ",
+                       token = format!("{:?}", keyword).to_lowercase())?;
+                if let Some(ref condition) = expr {
+                    write!(f, "({}) ", condition)?;
+                }
+                writeln!(f, "{{\n{body}\n}}", body = body)
+            },
+            FunDeclaration(ref fun) => fmt::Display::fmt(fun, f),
+            Loop(ref keyword, ref expr, ref body) => {
+                writeln!(f, "");
+                match *keyword {
+                    ::token::Keyword::While => {
+                        write!(f, "while(")?;
+                        if let Some(ref condition) = expr {
+                            write!(f, "{expr}", expr = condition)?;
+                        }
+                        write!(f, ")")?;
+                        writeln!(f, " {{\n{body}\n}}", body = body)
+                    },
+                    _ => unimplemented!()
+                }
+            },
             Expression(ref expr) => writeln!(f, "{};", expr),
             Return(ref expr) => match expr {
                 Some(ref expr) => writeln!(f, "return {};", expr),
                 _ => writeln!(f, "return;"),
             },
-            VariableDeclaration(ref var) => writeln!(f, "{}", var),
-        }
-    }
-}
-
-/// Une clause
-#[derive(Clone, Debug, PartialEq)]
-pub struct ConditionalStatement {
-    /// Si c'est un `if`, `else`, `else if`, etc.
-    pub token: Keyword,
-    /// La condition, toutes les conditions se regrouperont sous une condition
-    pub condition: Option<Box<Expression>>,
-    /// Le corps de la clause
-    pub body: Box<Block>,
-}
-
-impl fmt::Display for ConditionalStatement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{token} ", token=format!("{:?}", self.token).to_lowercase())?;
-        if let Some(ref cond) = self.condition {
-            write!(f, "({}) ", cond)?;
-        }
-        writeln!(f, "{{\n{body}\n}}", body=self.body)
-    }
-}
-
-/// Une clause
-#[derive(Clone, Debug, PartialEq)]
-pub struct LoopStatement {
-    /// Le type de loop: `while`, `for in`, etc.
-    pub token: Keyword,
-    /// La condition ou expression de la boucle
-    pub condition: Option<Box<Expression>>,
-    /// Le corps de la boucle
-    pub body: Box<Block>,
-}
-
-impl fmt::Display for LoopStatement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use token::Keyword::*;
-        match self.token {
-            While => {
-                write!(f, "while(")?;
-                if let Some(ref condition) = self.condition {
-                    write!(f, "{expr}", expr=condition)?;
-                }
-                write!(f, ")")?;
-                writeln!(f, " {{\n{body}\n}}", body=self.body)
+            VariableDeclaration(ref keyword, ref ident, ref value) => {
+                writeln!(f, "{keyword} {ident} = {value};",
+                       keyword = format!("{:?}", keyword).to_lowercase(),
+                       ident = ident,
+                       value = value,
+                )
             },
-            _ => unimplemented!()
         }
-    }
-}
-
-/// Une déclaration de variable
-#[derive(Clone, Debug, PartialEq)]
-pub struct VariableDeclaration {
-    /// Si c'est un `let`, `const`, etc.
-    pub token: Keyword,
-    /// L'identifiant de la variable
-    pub ident: Variable,
-    /// La valeur assigné à la variable
-    pub value: Box<Expression>,
-}
-
-impl fmt::Display for VariableDeclaration {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{keyword} {ident} = {value};",
-               keyword=format!("{:?}", self.token).to_lowercase(),
-               ident=self.ident,
-               value=self.value,
-        )
     }
 }
 
@@ -170,7 +129,7 @@ pub struct FunctionDeclaration {
     pub identifier: String,
     /// Paramètres de la fonction
     // TODO(berbiche): Devrais-je être réécrit sous la forme suivante?...
-    // TODO(berbiche): ...Vec<(String: identifiant, String: type, Option<Box>: valeur par défaut)>
+    // TODO(berbiche): ...Vec<(identifiant: string, type: string, valeur_par_defaut: Option<Box<Expression>)>
     pub parameters: Vec<Variable>,
     /// Le corps de la fonction
     pub body: Box<Block>,
@@ -180,11 +139,11 @@ pub struct FunctionDeclaration {
 
 impl fmt::Display for FunctionDeclaration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "fun {id}({params}) -> {return_type} {body}",
-               id=self.identifier,
-               params=self.parameters.iter().join(", "),
-               return_type=self.return_type,
-               body=self.body
+        writeln!(f, "fun {id}({params}) -> {return_type} {body}",
+               id = self.identifier,
+               params = self.parameters.iter().join(", "),
+               return_type = self.return_type,
+               body = self.body
         )
     }
 }
@@ -194,13 +153,11 @@ impl fmt::Display for FunctionDeclaration {
 pub enum Expression {
     /// Un identifiant consiste seulement en son nom
     Identifier(String),
+    /// Tout valeur pouvant être écrite _litérallement_ dans le code
     Literal(Literal),
-    FunCall {
-        /// L'identifiant de la cible
-        target: String,
-        /// Les arguments passés à la fonction
-        arguments: Vec<Box<Expression>>,
-    },
+    /// - 0: l'identifiant de la cible
+    /// - 1: les arguments passés à la fonction
+    FunCall(String, Vec<Box<Expression>>),
     /// Une expression "binaire" contient un opérateur et deux opérandes
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     /// Une expression "unaire" est une expression où un opérateur
@@ -233,14 +190,14 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Expression::*;
         write!(f, "(")?;
-        match self {
-            Identifier(st) => write!(f, "{}", st)?,
-            Literal(lit) => fmt::Display::fmt(lit, f)?,
-            FunCall { target, arguments } => write!(f, "{}({})", target, arguments.iter().join(", "))?,
-            BinaryExpression(lhs, op, rhs) => {
-                write!(f, "{lhs} {op} {rhs}", lhs=lhs, op=op, rhs=rhs)?;
+        match *self {
+            Identifier(ref st) => write!(f, "{}", st)?,
+            Literal(ref lit) => fmt::Display::fmt(lit, f)?,
+            FunCall(ref target, ref arguments) => write!(f, "{}({})", target, arguments.iter().join(", "))?,
+            BinaryExpression(ref lhs, ref op, ref rhs) => {
+                write!(f, "{lhs} {op} {rhs}", lhs = lhs, op = op, rhs = rhs)?;
             },
-            UnaryExpression(op, ex) => write!(f, "")?,
+            UnaryExpression(ref op, ref ex) => write!(f, "")?,
         };
         write!(f, ")")
     }
@@ -307,8 +264,11 @@ impl fmt::Display for Literal {
 /// Un nombre dans le langage
 #[derive(Clone, Debug, PartialEq)]
 pub enum Number {
+    /// Un nombre décimal à double précision
     Float(f64),
+    /// Un nombre entier signé 32 bits (-2^16 à 2^16-1)
     Int(i32),
+    /// Un nombre entier signé 64 bits (-2^32 à 2^32-1)
     Long(i64),
 }
 
@@ -334,9 +294,9 @@ impl fmt::Display for Number {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Number::*;
         match *self {
-            Float(fl) => write!(f, "{}", fl),
-            Int(i) => write!(f, "{}", i),
-            Long(l) => write!(f, "{}", l),
+            Long(num) => write!(f, "{}", num),
+            Float(num) => write!(f, "{}", num),
+            Int(num) => write!(f, "{}", num),
         }
     }
 }
@@ -431,20 +391,28 @@ impl fmt::Display for Type {
 #[doc(hidden)]
 #[cfg(test)]
 mod test {
-    use super::*;
+    use super::{
+        *,
+        Statement::*,
+        TokenType::*,
+        Keyword,
+        Expression,
+        Literal,
+    };
+    use ast;
 
     #[test]
     fn variable_declaration() {
-        let expected = "let value: int = ((5) + (10));";
-        let va = VariableDeclaration {
-            token: Keyword::Let,
-            ident: Variable { name: "value".to_string(), category: Type {name: "int".to_string()} },
-            value: box Expression::BinaryExpression(
-                box Expression::Literal(Literal::Number(::ast::Number::Int(5))),
+        let expected = "let value: int = ((5) + (10));\n";
+        let va = Statement::VariableDeclaration(
+            Keyword::Let,
+            Variable { name: "value".to_string(), category: Type {name: "int".to_string()} },
+            box Expression::BinaryExpression(
+                box Expression::Literal(Literal::Number(ast::Number::Int(5))),
                 BinaryOperator::Plus,
-                box Expression::Literal(Literal::Number(::ast::Number::Int(10))),
-            ),
-        };
+                box Expression::Literal(Literal::Number(ast::Number::Int(10))),
+            )
+        );
 
         assert_eq!(expected, format!("{}", va));
     }
@@ -455,7 +423,7 @@ mod test {
 fun Allo(p1: int, p2: string) -> string {
 let a: string = (1);
 return ((a) + (2));
-}\
+}
 ";
         let va = FunctionDeclaration {
             identifier: "Allo".to_string(),
@@ -470,16 +438,16 @@ return ((a) + (2));
                 },
             ],
             body: box Block(vec![
-                VariableDeclaration {
-                    token: Keyword::Let,
-                    ident: Variable {
+                VariableDeclaration(
+                    Keyword::Let,
+                    Variable {
                         name: "a".to_string(),
                         category: Type {
                             name: "string".to_string(),
                         },
                     },
-                    value: box Literal::Number(1.into()).into(),
-                }.into(),
+                    box Literal::Number(1.into()).into()
+                ).into(),
                 Statement::Return(
                     Some(box Expression::BinaryExpression(
                         box Literal::String("a".to_string()).into(),
