@@ -54,7 +54,7 @@ pub enum Statement {
     /// - 1: La valeur qui est assignée,
     Assignment(Variable, Box<Expression>),
     /// Une clause peut se retrouver dans ou en-dehors d'une expression
-    Conditional(Keyword, Option<Box<Expression>>, Box<Block>),
+    Conditional(Keyword, Box<Expression>, Box<Block>),
     /// Déclaration de fonction
     FunDeclaration(FunctionDeclaration),
     /// Une boucle
