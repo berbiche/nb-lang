@@ -1,13 +1,13 @@
 // TODO(berbiche): Voir comment ce code peut être modélisé pour permettre l'addition de...
-// TODO(berbiche): ...nouveaux types d'expression (et autres), une plus grande modularité et extensibilité.
+// ...nouveaux types d'expression (et autres), une plus grande modularité et extensibilité.
 use token::*;
 
 use std::fmt;
 use itertools::Itertools;
 
 
-/// Représente le programme
-/// Est le noeud racine de l'`ast`
+/// Représente l'entièreté du programme.
+/// Est le noeud racine de l'`ast`.
 pub struct Program {
     /// Les énoncés formant le programme
     pub(crate) statements: Vec<Box<Statement>>,
@@ -30,10 +30,19 @@ impl fmt::Display for Program {
     }
 }
 
+#[doc(inline)]
+pub(crate) type Identifier = String;
+
 /// Un block est composé de plusieurs énoncés.
 /// En dû temps, un `Block` pourra être une expression.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Block(Vec<Statement>);
+pub(crate) struct Block(Vec<Statement>);
+
+impl From<Vec<Statement>> for Block {
+    fn from(vec: Vec<Statement>) -> Self {
+        Block(vec)
+    }
+}
 
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -49,16 +58,16 @@ impl fmt::Display for Block {
 /// au "top-level", c'est-à-dire qu'une expression n'est pas valide sans son
 /// contexte par exemple, tout comme une clause.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Statement {
+pub(crate) enum Statement {
     /// - 0: La cible de l'affectation
     /// - 1: La valeur qui est assignée,
     Assignment(Variable, Box<Expression>),
     /// Une clause peut se retrouver dans ou en-dehors d'une expression
-    Conditional(Keyword, Box<Expression>, Box<Block>),
+    Conditional(Keyword, Box<Expression>, Block),
     /// Déclaration de fonction
     FunDeclaration(FunctionDeclaration),
     /// Une boucle
-    Loop(Keyword, Option<Box<Expression>>, Box<Block>),
+    Loop(Keyword, Option<Box<Expression>>, Block),
     /// Une expression
     Expression(Box<Expression>),
     /// La valeur de retour est une `Expression` ou `None`
@@ -75,21 +84,13 @@ impl fmt::Display for Statement {
         use self::Statement::*;
         use token::TokenType::*;
         match *self {
-            Assignment(ref var, ref exp) => {
-                writeln!(f, "");
-                fmt::Display::fmt(var, f)?;
-                write!(f, " = ")?;
-                fmt::Display::fmt(exp, f)?;
-                writeln!(f, ";")
-            },
-            Conditional(ref keyword, ref expr, ref body) => {
-                writeln!(f, "");
-                write!(f, "{token} ",
-                       token = format!("{:?}", keyword).to_lowercase())?;
-                if let Some(ref condition) = expr {
-                    write!(f, "({}) ", condition)?;
-                }
-                writeln!(f, "{{\n{body}\n}}", body = body)
+            Assignment(ref var, ref exp) => writeln!(f, "{} = {};", var, exp),
+            Conditional(ref keyword, ref cond, ref body) => {
+                writeln!(f, "{token} ({condition})\n{{\n{body}\n}}",
+                       token = format!("{:?}", keyword).to_lowercase(),
+                       condition = cond,
+                       body = body
+                )
             },
             FunDeclaration(ref fun) => fmt::Display::fmt(fun, f),
             Loop(ref keyword, ref expr, ref body) => {
@@ -122,17 +123,17 @@ impl fmt::Display for Statement {
     }
 }
 
-/// Une déclaration de foncton
+/// Une déclaration de fonction.
 #[derive(Clone, Debug, PartialEq)]
-pub struct FunctionDeclaration {
+pub(crate) struct FunctionDeclaration {
     /// Le nom de la fonction
-    pub identifier: String,
+    pub identifier: Identifier,
     /// Paramètres de la fonction
     // TODO(berbiche): Devrais-je être réécrit sous la forme suivante?...
     // TODO(berbiche): ...Vec<(identifiant: string, type: string, valeur_par_defaut: Option<Box<Expression>)>
     pub parameters: Vec<Variable>,
     /// Le corps de la fonction
-    pub body: Box<Block>,
+    pub body: Block,
     /// Le type de retour de la fonction
     pub return_type: Type,
 }
@@ -150,14 +151,14 @@ impl fmt::Display for FunctionDeclaration {
 
 /// Une expression dans le langage
 #[derive(Clone, Debug, PartialEq)]
-pub enum Expression {
+pub(crate) enum Expression {
     /// Un identifiant consiste seulement en son nom
-    Identifier(String),
+    Identifier(Identifier),
     /// Tout valeur pouvant être écrite _litérallement_ dans le code
     Literal(Literal),
     /// - 0: l'identifiant de la cible
     /// - 1: les arguments passés à la fonction
-    FunCall(String, Vec<Box<Expression>>),
+    FunCall(Identifier, Vec<Box<Expression>>),
     /// Une expression "binaire" contient un opérateur et deux opérandes
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     /// Une expression "unaire" est une expression où un opérateur
@@ -174,8 +175,8 @@ impl<'a> From<&'a str> for Expression {
     }
 }
 
-impl From<String> for Expression {
-    fn from(val: String) -> Self {
+impl From<Identifier> for Expression {
+    fn from(val: Identifier) -> Self {
         Expression::Identifier(val)
     }
 }
@@ -209,7 +210,7 @@ impl fmt::Display for Expression {
 /// - Array,
 /// - Booléen
 #[derive(Clone, Debug, PartialEq)]
-pub enum Literal {
+pub(crate) enum Literal {
     /// Un tableau unidimensionnel de taille fixe contenant des éléments de même type
     Array(Vec<Box<Expression>>),
     Number(Number),
@@ -263,7 +264,7 @@ impl fmt::Display for Literal {
 
 /// Un nombre dans le langage
 #[derive(Clone, Debug, PartialEq)]
-pub enum Number {
+pub(crate) enum Number {
     /// Un nombre décimal à double précision
     Float(f64),
     /// Un nombre entier signé 32 bits (-2^16 à 2^16-1)
@@ -304,7 +305,7 @@ impl fmt::Display for Number {
 /// Tout opérateur pouvant se retrouver en position infixe dans une expression.
 /// Ces opérateurs peuvent uniquement se retrouver dans une expression "binaire".
 #[derive(Clone, Debug, PartialEq)]
-pub enum BinaryOperator {
+pub(crate) enum BinaryOperator {
     Division,
     Equality,
     Greater,
@@ -341,7 +342,7 @@ impl fmt::Display for BinaryOperator {
 
 /// Tout opérateur s'appliquant à un opérande
 #[derive(Clone, Debug, PartialEq)]
-pub enum UnaryOperator {
+pub(crate) enum UnaryOperator {
     Not,
 }
 
@@ -356,9 +357,9 @@ impl fmt::Display for UnaryOperator {
 
 /// Une variable dans le langage
 #[derive(Clone, Debug, PartialEq)]
-pub struct Variable {
+pub(crate) struct Variable {
     /// Nom de l'identifiant
-    pub name: String,
+    pub name: Identifier,
     /// Le type de variable (type est un mot réservé dans Rust)
     pub category: Type
 }
@@ -374,7 +375,7 @@ impl fmt::Display for Variable {
 /// contenant uniquement le nom du type.
 // TODO: Me déplacer dans mon propre module
 #[derive(Clone, Debug, PartialEq)]
-pub struct Type {
+pub(crate) struct Type {
     /// Nom du type
     pub name: String,
 //    /// Visibilité du type
@@ -388,7 +389,6 @@ impl fmt::Display for Type {
 }
 
 // Quelques tests pour voir si le formattage fonctionne correctement
-#[doc(hidden)]
 #[cfg(test)]
 mod test {
     use super::{
@@ -437,7 +437,7 @@ return ((a) + (2));
                     category: Type { name: "string".to_string() }
                 },
             ],
-            body: box Block(vec![
+            body: Block(vec![
                 VariableDeclaration(
                     Keyword::Let,
                     Variable {
