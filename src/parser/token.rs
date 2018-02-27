@@ -232,10 +232,14 @@ pub enum Number {
     Octal(String),
 }
 
-/// Représente une position dans un programme
-/// Peut être employé pour attacher de l'information sur un lexème ou autre
-/// IMPORTANT: Position n'est pas relatif à l'entrée, c'est-à-dire
-/// que la position ne représente pas un byte précis dans l'entrée
+/// Représente une position dans un programme.
+///
+/// Peut être employé pour attacher de l'information sur un lexème ou autre.
+///
+/// L'utilité principale est dans l'affichage de messages d'erreurs.
+///
+/// **IMPORTANT**: Position n'est pas relatif à l'entrée, c'est-à-dire
+/// que la position ne représente pas un endroit exact dans l'entrée, mais plutôt un endroit pour un humain (ligne et colonne).
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Position {
     /// Ligne
@@ -266,10 +270,6 @@ impl Position {
             Equal | Greater => Err(()),
         }
     }
-
-    pub fn line(&self) -> usize { self.line }
-
-    pub fn column(&self) -> usize { self.column }
 }
 
 impl fmt::Display for Position {
