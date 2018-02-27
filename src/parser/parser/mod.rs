@@ -386,15 +386,28 @@ impl<'a> Parser<'a> {
     /// Parse un énoncé-expression.
     /// Une expression seule est un énoncé valide dans le langage.
     fn parse_expression_statement(&mut self) -> LResult<ast::Statement> {
-        let statement = self.parse_expression()?;
+        let expression = self.parse_expression()?;
         self.expect_token(&TokenType::Semicolon)?;
         self.advance_token();
-        statement
+        Ok(ast::Statement::Expression(expression))
     }
 
     /// Parse un retour de fonction.
     fn parse_return(&mut self) -> LResult<ast::Statement> {
-        unimplemented!()
+        self.expect_token(&TokenType::Keyword(Keyword::Return))?;
+        self.advance_token();
+
+        let return_value = if self.cur_token_is(&TokenType::Semicolon) {
+            self.advance_token();
+            None
+        }
+        else {
+            let expr = self.parse_expression()?;
+            if self.cur_token_is(&TokenType::Semicolon) { self.advance_token() }
+            Some(expr)
+        };
+
+        Ok(ast::Statement::Return(return_value))
     }
 
     /// Parse une énoncé conditionnelle `if`.
