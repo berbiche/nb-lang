@@ -1,3 +1,8 @@
+//! Le Lexer est un wrapper sur un itérateur qui lit les caractères pour former des lexèmes.
+//!
+//! Celui-ci fournit plusieurs méthodes aisant l'utilisation de l'itérateur.
+//!
+//! Le Lexer est donc lui-même un itérateur, permettant le streaming des `token::Token`.
 use self::error::{Error, LResult};
 use token::*;
 
@@ -10,9 +15,6 @@ use std::vec::Vec;
 
 pub mod error;
 
-/// Le Lexer est un wrapper sur un itérateur qui lit les caractères pour former des lexèmes.
-/// Celui-ci fournit plusieurs méthodes aisant l'utilisation de l'itérateur.
-/// Le Lexer est donc lui-même un itérateur, permettant le streaming des `token::Token`
 #[derive(Debug)]
 pub(crate) struct Lexer<'a> {
     /// Caractère courant dans la séquence de caractères
