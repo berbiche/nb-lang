@@ -462,11 +462,22 @@ impl<'a> Parser<'a> {
     /// - Terminator: Le token qui termine la séquence.
     fn parse_expression_list(&mut self, terminator: token::TokenType)
         -> LResult<Vec<Box<ast::Expression>>> {
-//        let vec = vec![];
-//        match self.cur_token {
-//            Some(ref t) if self.cur_token_is(t) => Ok(vec),
-//        }
-        unimplemented!()
+        let mut expressions = vec![];
+        if self.cur_token_is(&terminator) {
+            self.advance_token();
+            return Ok(expressions)
+        }
+
+        while !self.cur_token_is(&terminator) {
+            let expr = self.parse_expression()?;
+
+            self.expect_token(&TokenType::Comma)?;
+            self.advance_token();
+
+            expressions.push(expr)
+        }
+
+        Ok(expressions)
     }
 
     /// Parse un literal (nombre, booléen, array, string).
