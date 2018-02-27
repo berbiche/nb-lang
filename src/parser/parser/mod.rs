@@ -386,7 +386,10 @@ impl<'a> Parser<'a> {
     /// Parse un énoncé-expression.
     /// Une expression seule est un énoncé valide dans le langage.
     fn parse_expression_statement(&mut self) -> LResult<ast::Statement> {
-        unimplemented!()
+        let statement = self.parse_expression()?;
+        self.expect_token(&TokenType::Semicolon)?;
+        self.advance_token();
+        statement
     }
 
     /// Parse un retour de fonction.
