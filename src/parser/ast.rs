@@ -2,8 +2,10 @@
 // ...nouveaux types d'expression (et autres), une plus grande modularité et extensibilité.
 use token::*;
 
-use std::fmt;
 use itertools::Itertools;
+
+use std::fmt;
+use std::convert::TryFrom;
 
 
 /// Représente l'entièreté du programme.
@@ -62,8 +64,9 @@ pub(crate) enum Statement {
     /// - 0: La cible de l'affectation
     /// - 1: La valeur qui est assignée,
     Assignment(Variable, Box<Expression>),
-    /// Une clause peut se retrouver dans ou en-dehors d'une expression
-    Conditional(Keyword, Box<Expression>, Block),
+    /// Une clause peut se retrouver dans ou en-dehors d'une expression.
+    /// La condition est absente pour un else.
+    Conditional(Keyword, Option<Box<Expression>>, Block),
     /// Déclaration de fonction
     FunDeclaration(FunctionDeclaration),
     /// Une boucle
@@ -86,11 +89,12 @@ impl fmt::Display for Statement {
         match *self {
             Assignment(ref var, ref exp) => writeln!(f, "{} = {};", var, exp),
             Conditional(ref keyword, ref cond, ref body) => {
-                writeln!(f, "{token} ({condition})\n{{\n{body}\n}}",
-                       token = format!("{:?}", keyword).to_lowercase(),
-                       condition = cond,
-                       body = body
-                )
+                writeln!(f, "")?;
+                write!(f, "{token}", token = format!("{:?}", keyword).to_lowercase())?;
+                if cond.is_some() {
+                    write!(f, " ({condition})\n", condition = cond.as_ref().unwrap())?;
+                }
+                write!(f, "{{\n{body}\n}}", body = body)
             },
             FunDeclaration(ref fun) => fmt::Display::fmt(fun, f),
             Loop(ref keyword, ref expr, ref body) => {
@@ -306,36 +310,60 @@ impl fmt::Display for Number {
 /// Ces opérateurs peuvent uniquement se retrouver dans une expression "binaire".
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum BinaryOperator {
-    Division,
-    Equality,
-    Greater,
-    GreaterOrEqual,
-    Lower,
-    LowerOrEqual,
-    Minus,
-    Modulo,
-    Multiplication,
-    NotEqual,
+    Div,
+    EqEq,
+    Gt,
+    GtEq,
+    Lt,
+    LtEq,
+    Min,
+    Mod,
+    Mul,
+    NE,
     Plus,
-    Power
+    Pow
+}
+
+impl TryFrom<TokenType> for BinaryOperator {
+    type Error = ();
+    fn try_from(token_type: TokenType) -> Result<Self, Self::Error> {
+        use token::TokenType as tt;
+        use self::BinaryOperator as bo;
+
+        Ok(match token_type {
+            tt::Division => bo::Div,
+            tt::EqEq => bo::EqEq,
+            tt::Gt => bo::Gt,
+            tt::GtEq => bo::GtEq,
+            tt::Lt => bo::Lt,
+            tt::LtEq => bo::LtEq,
+            tt::Minus => bo::Min,
+            tt::Modulo => bo::Mod,
+            tt::Multiplication => bo::Mul,
+            tt::NotEq => bo::NE,
+            tt::Plus => bo::Plus,
+            tt::Power => bo::Pow,
+            _ => return Err(())
+        })
+    }
 }
 
 impl fmt::Display for BinaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::BinaryOperator::*;
-        write!(f, "{}", match *self {
-            Division => "/",
-            Equality => "==",
-            Greater => ">",
-            GreaterOrEqual => ">=",
-            Lower => "<",
-            LowerOrEqual => "<=",
-            Minus => "-",
-            Modulo => "%",
-            Multiplication => "*",
-            NotEqual => "!=",
+        write!(f, "{}", match self {
+            Div => "/",
+            EqEq => "==",
+            Gt => ">",
+            GtEq => ">=",
+            Lt => "<",
+            LtEq => "<=",
+            Min => "-",
+            Mod => "%",
+            Mul => "*",
+            NE => "!=",
             Plus => "+",
-            Power => "^",
+            Pow => "^",
         })
     }
 }
@@ -344,6 +372,19 @@ impl fmt::Display for BinaryOperator {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum UnaryOperator {
     Not,
+}
+
+impl TryFrom<TokenType> for UnaryOperator {
+    type Error = ();
+    fn try_from(token_type: TokenType) -> Result<Self, Self::Error> {
+        use token::TokenType as tt;
+        use self::UnaryOperator as uo;
+
+        Ok(match token_type {
+            tt::Not => uo::Not,
+            _ => return Err(())
+        })
+    }
 }
 
 impl fmt::Display for UnaryOperator {

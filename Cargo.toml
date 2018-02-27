@@ -7,6 +7,7 @@ publish = false
 [dependencies]
 nb-parser = { path = "src/parser" }
 nb-std = { path = "src/std" }
+lazy_static = "1.0.0"
 
 [workspace]
 members = ["src/parser", "src/std"]
