@@ -24,12 +24,11 @@
 //! `TokenType::Rbracket`, dans le cas contraire nous avons simplement un identifiant.
 use ast::{self, Program};
 use lexer::{self, Lexer, error::{Error, LResult}};
-use token::{self, Token, TokenType, Number, Keyword};
+use token::{self, Keyword, Number, Token, TokenType};
 
 use std::convert::TryInto;
 use std::collections::{HashMap, HashSet};
 use std::mem;
-
 
 /// Type représentant le niveau de précédence d'un lexème
 type PrecedenceLevel = u8;
@@ -73,7 +72,10 @@ lazy_static! {
 /// Renvoie la priorité du token passé en argument dans une expression.
 #[inline]
 fn get_precedence(token: &Token) -> PrecedenceLevel {
-    BINARY_OPERATOR_MAP.get(&token.token_type).map(|x| *x).unwrap_or(LOWEST_PRECEDENCE)
+    BINARY_OPERATOR_MAP
+        .get(&token.token_type)
+        .map(|x| *x)
+        .unwrap_or(LOWEST_PRECEDENCE)
 }
 
 /// Renvoie si le `TokenType` est un opérateur binaire
@@ -117,14 +119,23 @@ fn error_unexpected_token(token: Token) -> LResult<!> {
 
 /// Crée une erreur `Error::UnexpectedEOF`
 #[inline]
-fn error_unexpected_eof<P>(pos: P) -> LResult<!> where P: Into<token::PositionOrSpan> {
+fn error_unexpected_eof<P>(pos: P) -> LResult<!>
+where
+    P: Into<token::PositionOrSpan>,
+{
     Err(Error::UnexpectedEOF(pos.into()))
 }
 
-fn error_expected_token<S>(st: S, token: Token) -> LResult<!> where S: Into<String> {
-    Err(Error::ExpectedToken(st.into(), token.token_type, token.location))
+fn error_expected_token<S>(st: S, token: Token) -> LResult<!>
+where
+    S: Into<String>,
+{
+    Err(Error::ExpectedToken(
+        st.into(),
+        token.token_type,
+        token.location,
+    ))
 }
-
 
 /// Le `Parser` contient toutes les informations associés au "parsage" d'une entrée.
 /// La table des symboles sera construite au prochain stage, où l'on marche l'AST.
@@ -185,8 +196,7 @@ impl<'a> Parser<'a> {
 
         if self.errors.is_empty() {
             Ok(program)
-        }
-        else {
+        } else {
             Err(self.errors)
         }
     }
@@ -241,7 +251,7 @@ impl<'a> Parser<'a> {
     fn cur_token_is(&self, kind: &TokenType) -> bool {
         match self.cur_token {
             Some(ref token) => is_same_tokentype(&token.token_type, kind),
-            _ => false
+            _ => false,
         }
     }
 
@@ -250,7 +260,7 @@ impl<'a> Parser<'a> {
     fn peek_token_is(&self, kind: &TokenType) -> bool {
         match self.peek_token {
             Some(ref token) => is_same_tokentype(&token.token_type, kind),
-            _ => false
+            _ => false,
         }
     }
 
@@ -259,7 +269,7 @@ impl<'a> Parser<'a> {
     fn expect_token(&self, kind: &TokenType) -> LResult<()> {
         match self.cur_token {
             Some(ref token) if is_same_tokentype(&token.token_type, kind) => Ok(()),
-            _ => Err(Error::UnexpectedEOF(self.lexer.position().into()))
+            _ => Err(Error::UnexpectedEOF(self.lexer.position().into())),
         }
     }
 
@@ -273,10 +283,7 @@ impl<'a> Parser<'a> {
     /// Parse un énoncé, quel qu'il soit et le renvoie.
     /// Si quoique se soit est illégal dans l'énoncé, une erreur est générée.
     fn parse_statement(&mut self) -> LResult<ast::Statement> {
-        use token::{
-            TokenType::{self, *},
-            Keyword::{self, *},
-        };
+        use token::{Keyword::{self, *}, TokenType::{self, *}};
         match self.cur_token.as_ref().unwrap().token_type {
             Keyword(Keyword::Let) | Keyword(Keyword::Const) => self.parse_variable_declaration(),
             Keyword(Keyword::Fun) => self.parse_function_declaration(),
@@ -301,7 +308,7 @@ impl<'a> Parser<'a> {
             match token.token_type {
                 TokenType::Keyword(Keyword::Let) => Keyword::Let,
                 TokenType::Keyword(Keyword::Const) => Keyword::Const,
-                _ => error_unexpected_token(token)?
+                _ => error_unexpected_token(token)?,
             }
         };
 
@@ -312,9 +319,10 @@ impl<'a> Parser<'a> {
                 name: ident,
                 category: if self.cur_token_is(&TokenType::Colon) {
                     self.parse_type()?
-                }
-                else {
-                    ast::Type { name: String::new() }
+                } else {
+                    ast::Type {
+                        name: String::new(),
+                    }
                 },
             }
         };
@@ -334,9 +342,10 @@ impl<'a> Parser<'a> {
         self.advance_token(); // consomme le `fun`
 
         let identifier = match self.cur_token.as_ref() {
-            Some(t) if is_same_tokentype(&t.token_type, &Identifier(String::new())) =>
-                self.parse_identifier()?,
-            _ => error_unexpected_eof(self.lexer.position())?
+            Some(t) if is_same_tokentype(&t.token_type, &Identifier(String::new())) => {
+                self.parse_identifier()?
+            },
+            _ => error_unexpected_eof(self.lexer.position())?,
         };
 
         self.expect_token(&TokenType::Lparen)?;
@@ -346,18 +355,25 @@ impl<'a> Parser<'a> {
 
         // parse le return type de la fonction
         let return_type = match self.cur_token.as_ref() {
-            Some(Token { token_type: TokenType::Arrow, .. }) => {
-                    self.advance_token();
-                    self.expect_ident()?;
-                    let typ = self.parse_identifier()?;
-                    ast::Type { name: typ.to_string() }
+            Some(Token {
+                token_type: TokenType::Arrow,
+                ..
+            }) => {
+                self.advance_token();
+                self.expect_ident()?;
+                let typ = self.parse_identifier()?;
+                ast::Type {
+                    name: typ.to_string(),
+                }
             },
             // la flèche -> est optionnelle
             Some(_) => {
                 self.advance_token();
-                ast::Type { name: String::new() }
+                ast::Type {
+                    name: String::new(),
+                }
             },
-            None => error_unexpected_eof(self.lexer.position())?
+            None => error_unexpected_eof(self.lexer.position())?,
         };
 
         self.expect_token(&TokenType::Rbrace)?;
@@ -377,13 +393,16 @@ impl<'a> Parser<'a> {
         let mut prototype = vec![];
         while !self.cur_token_is(&TokenType::Rparen) {
             let identifier = match self.cur_token.as_ref() {
-                Some(Token { token_type: TokenType::Identifier(_), .. }) =>
-                    self.parse_identifier()?,
-                Some(_) => { // pas un identifiant
+                Some(Token {
+                    token_type: TokenType::Identifier(_),
+                    ..
+                }) => self.parse_identifier()?,
+                Some(_) => {
+                    // pas un identifiant
                     let token = self.cur_token().unwrap();
                     error_expected_token("identifier", token)?
                 },
-                _ => error_unexpected_eof(self.lexer.position())?
+                _ => error_unexpected_eof(self.lexer.position())?,
             };
 
             self.expect_token(&TokenType::Colon)?;
@@ -392,9 +411,9 @@ impl<'a> Parser<'a> {
             let typ = match self.cur_token() {
                 Some(token) => match token.token_type {
                     TokenType::Identifier(st) => self.parse_type()?,
-                    _ => error_expected_token("type", token)?
+                    _ => error_expected_token("type", token)?,
                 },
-                _ => error_unexpected_eof(self.lexer.position())?
+                _ => error_unexpected_eof(self.lexer.position())?,
             };
 
             prototype.push(ast::Variable {
@@ -439,10 +458,11 @@ impl<'a> Parser<'a> {
         let return_value = if self.cur_token_is(&TokenType::Semicolon) {
             self.advance_token();
             None
-        }
-        else {
+        } else {
             let expr = self.parse_expression(LOWEST_PRECEDENCE)?;
-            if self.cur_token_is(&TokenType::Semicolon) { self.advance_token() }
+            if self.cur_token_is(&TokenType::Semicolon) {
+                self.advance_token()
+            }
             Some(expr)
         };
 
@@ -457,16 +477,16 @@ impl<'a> Parser<'a> {
             Keyword(If) => If,
             Keyword(Else) => match self.peek_token_is(&Keyword(If)) {
                 true => Elseif,
-                false => Else
+                false => Else,
             },
             Keyword(Unless) => Unless,
-            _ => error_unexpected_token(self.cur_token().unwrap())?
+            _ => error_unexpected_token(self.cur_token().unwrap())?,
         };
         self.advance_token(); // consomme le If / Unless / Else restant
 
         let condition = match keyword {
             Else => None,
-            _ => Some(self.parse_expression(LOWEST_PRECEDENCE)?)
+            _ => Some(self.parse_expression(LOWEST_PRECEDENCE)?),
         };
 
         self.expect_token(&TokenType::Lbrace)?;
@@ -509,22 +529,21 @@ impl<'a> Parser<'a> {
         let mut lhs = match self.cur_token.as_ref() {
             // Toutes les choses qui peuvent se retrouver en début d'expression
             Some(cur_token) => match cur_token.token_type {
-                tt::Literal(_) | tt::Number(_) |
-                tt::Boolean(_) | tt::Lbracket => box ex::Literal(self.parse_literal()?),
+                tt::Literal(_) | tt::Number(_) | tt::Boolean(_) | tt::Lbracket => {
+                    box ex::Literal(self.parse_literal()?)
+                },
                 tt::Lparen => self.parse_paren_expression()?,
                 tt::Identifier(_) => match self.peek_token_is(&tt::Lparen) {
                     true => self.parse_call_expression()?,
-                    _ => box ex::Identifier(self.parse_identifier()?)
+                    _ => box ex::Identifier(self.parse_identifier()?),
                 },
-                ref token if is_unary_operator(token) => {
-                    self.parse_prefix_expression()?
-                },
+                ref token if is_unary_operator(token) => self.parse_prefix_expression()?,
                 _ => {
                     let token = self.cur_token().unwrap();
                     error_unexpected_token(token)?
-                }
+                },
             },
-            None => error_unexpected_eof(self.lexer.position())?
+            None => error_unexpected_eof(self.lexer.position())?,
         };
 
         // Tant que nous n'avons pas atteint la fin de l'expression
@@ -540,7 +559,7 @@ impl<'a> Parser<'a> {
                     let token = self.cur_token().unwrap();
                     error_expected_token("opérateur binaire", token)?
                 },
-                None => error_unexpected_eof(self.lexer.position())?
+                None => error_unexpected_eof(self.lexer.position())?,
             }
         }
 
@@ -551,7 +570,7 @@ impl<'a> Parser<'a> {
     /// Parse une expression entre parenthèses.
     fn parse_paren_expression(&mut self) -> LResult<Box<ast::Expression>> {
         self.advance_token(); // consomme le '('
-        // par défaut, la priorité la plus faible car nous sommes en début d'expression
+                              // par défaut, la priorité la plus faible car nous sommes en début d'expression
         let expr = self.parse_expression(LOWEST_PRECEDENCE)?;
         self.expect_token(&TokenType::Rparen);
         self.advance_token(); // consomme le ')'
@@ -573,8 +592,10 @@ impl<'a> Parser<'a> {
 
     /// Parse une expression binaire.
     /// Plus d'information sur ce qu'est une expression binaire dans `ast::BinaryOperator`.
-    fn parse_binary_expression(&mut self, lhs: Box<ast::Expression>)
-        -> LResult<Box<ast::Expression>> {
+    fn parse_binary_expression(
+        &mut self,
+        lhs: Box<ast::Expression>,
+    ) -> LResult<Box<ast::Expression>> {
         // priorité de l'opérateur actuel
         let precedence = self.cur_precedence();
         // consomme l'opérateur
@@ -595,17 +616,20 @@ impl<'a> Parser<'a> {
             // parse l'expression jusqu'à ce que l'on rencontre Rparen
             TokenType::Lparen => self.parse_expression_list(TokenType::Rparen)
                 .and_then(|args| Ok(box ast::Expression::FunCall(ident, args))),
-            _ => error_unexpected_token(token)?
+            _ => error_unexpected_token(token)?,
         }
     }
 
-    /// Parse une liste d'expression, c'est-à-dire une liste d'éléments séparés par des virgules.
-    fn parse_expression_list(&mut self, terminator: token::TokenType)
-        -> LResult<Vec<Box<ast::Expression>>> {
+    /// Parse une liste d'expression, c'est-à-dire une liste d'éléments séparés par des
+    /// virgules.
+    fn parse_expression_list(
+        &mut self,
+        terminator: token::TokenType,
+    ) -> LResult<Vec<Box<ast::Expression>>> {
         let mut expressions = vec![];
         if self.cur_token_is(&terminator) {
             self.advance_token();
-            return Ok(expressions)
+            return Ok(expressions);
         }
 
         while !self.cur_token_is(&terminator) {
@@ -628,7 +652,7 @@ impl<'a> Parser<'a> {
             TokenType::Literal(_) => self.parse_string(),
             TokenType::Number(_) => self.parse_number().map(ast::Literal::from),
             TokenType::Lbracket => self.parse_array(),
-            _ => error_unexpected_token(self.cur_token().unwrap())?
+            _ => error_unexpected_token(self.cur_token().unwrap())?,
         }
     }
 
@@ -636,9 +660,9 @@ impl<'a> Parser<'a> {
     fn parse_array(&mut self) -> LResult<ast::Literal> {
         let token = self.cur_token().unwrap();
         match token.token_type {
-            TokenType::Lbracket =>
-                self.parse_expression_list(TokenType::Rbracket).map(ast::Literal::from),
-            _ => error_unexpected_token(token)?
+            TokenType::Lbracket => self.parse_expression_list(TokenType::Rbracket)
+                .map(ast::Literal::from),
+            _ => error_unexpected_token(token)?,
         }
     }
 
@@ -647,7 +671,7 @@ impl<'a> Parser<'a> {
         let token = self.cur_token().unwrap();
         match token.token_type {
             TokenType::Boolean(b) => Ok(ast::Literal::Boolean(b)),
-            _ => error_unexpected_token(token)?
+            _ => error_unexpected_token(token)?,
         }
     }
 
@@ -659,8 +683,11 @@ impl<'a> Parser<'a> {
         // ... car les enum std::num::IntErrorKind et std::num::FloatErrorKind sont privés
         // ... `parse`/`from_str_radix` renvoie
         // ... `ParseIntError { kind: IntErrorKind/FloatErrorKind }`
-        fn parse_with_base(num: String, base: u32, location: token::PositionOrSpan)
-                           -> LResult<ast::Number> {
+        fn parse_with_base(
+            num: String,
+            base: u32,
+            location: token::PositionOrSpan,
+        ) -> LResult<ast::Number> {
             let num = num.replace("_", "");
 
             // e
@@ -674,25 +701,26 @@ impl<'a> Parser<'a> {
         let token = self.cur_token().unwrap();
         match token.token_type {
             TokenType::Number(number) => match number {
-                Number::Binary(num) =>  parse_with_base(num, 2, token.location),
+                Number::Binary(num) => parse_with_base(num, 2, token.location),
                 Number::Octal(num) => parse_with_base(num, 8, token.location),
                 Number::Hexadecimal(num) => parse_with_base(num, 16, token.location),
                 Number::Decimal(num) => {
                     let num = num.replace("_", "");
                     // Converti nombre -> ast::Number
-                    let success = num.parse::<i32>().map(ast::Number::from)
+                    let success = num.parse::<i32>()
+                        .map(ast::Number::from)
                         .or_else(|_| num.parse::<i64>().map(ast::Number::from))
                         .or_else(|_| num.parse::<f64>().map(ast::Number::from));
                     // ne compile pas, problème avec borrowck
-//                    .map_err(|_| Error::InvalidNumber(num, token.location));
+                    //                    .map_err(|_| Error::InvalidNumber(num, token.location));
                     // alternative
                     match success {
                         Err(_) => Err(Error::InvalidNumber(num, token.location)),
-                        Ok(t) => Ok(t)
+                        Ok(t) => Ok(t),
                     }
                 },
             },
-            _ => error_unexpected_token(token)?
+            _ => error_unexpected_token(token)?,
         }
     }
 
@@ -701,7 +729,7 @@ impl<'a> Parser<'a> {
         let token = self.cur_token().unwrap();
         match token.token_type {
             TokenType::Literal(st) => Ok(ast::Literal::String(st)),
-            _ => error_unexpected_token(token)?
+            _ => error_unexpected_token(token)?,
         }
     }
 
@@ -710,7 +738,7 @@ impl<'a> Parser<'a> {
         let token = self.cur_token().unwrap();
         match token.token_type {
             TokenType::Identifier(st) => Ok(st),
-            _ => error_unexpected_token(token)?
+            _ => error_unexpected_token(token)?,
         }
     }
 
@@ -720,7 +748,7 @@ impl<'a> Parser<'a> {
         let token = self.cur_token().unwrap();
         match token.token_type {
             TokenType::Identifier(name) => Ok(ast::Type { name }),
-            _ => error_unexpected_token(token)?
+            _ => error_unexpected_token(token)?,
         }
     }
 }
@@ -732,7 +760,5 @@ mod test {
 
     #[test]
     #[ignore]
-    fn test() {
-
-    }
+    fn test() {}
 }

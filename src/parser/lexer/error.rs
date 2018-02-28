@@ -1,4 +1,4 @@
-use token::{PositionOrSpan, Token, TokenType, Keyword};
+use token::{Keyword, PositionOrSpan, Token, TokenType};
 
 use std::result;
 

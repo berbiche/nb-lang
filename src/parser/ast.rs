@@ -7,7 +7,6 @@ use itertools::Itertools;
 use std::fmt;
 use std::convert::TryFrom;
 
-
 /// Représente l'entièreté du programme.
 /// Est le noeud racine de l'`ast`.
 pub struct Program {
@@ -90,7 +89,11 @@ impl fmt::Display for Statement {
             Assignment(ref var, ref exp) => writeln!(f, "{} = {};", var, exp),
             Conditional(ref keyword, ref cond, ref body) => {
                 writeln!(f, "")?;
-                write!(f, "{token}", token = format!("{:?}", keyword).to_lowercase())?;
+                write!(
+                    f,
+                    "{token}",
+                    token = format!("{:?}", keyword).to_lowercase()
+                )?;
                 if cond.is_some() {
                     write!(f, " ({condition})\n", condition = cond.as_ref().unwrap())?;
                 }
@@ -108,7 +111,7 @@ impl fmt::Display for Statement {
                         write!(f, ")")?;
                         writeln!(f, " {{\n{body}\n}}", body = body)
                     },
-                    _ => unimplemented!()
+                    _ => unimplemented!(),
                 }
             },
             Expression(ref expr) => writeln!(f, "{};", expr),
@@ -116,13 +119,13 @@ impl fmt::Display for Statement {
                 Some(ref expr) => writeln!(f, "return {};", expr),
                 _ => writeln!(f, "return;"),
             },
-            VariableDeclaration(ref keyword, ref ident, ref value) => {
-                writeln!(f, "{keyword} {ident} = {value};",
-                       keyword = format!("{:?}", keyword).to_lowercase(),
-                       ident = ident,
-                       value = value,
-                )
-            },
+            VariableDeclaration(ref keyword, ref ident, ref value) => writeln!(
+                f,
+                "{keyword} {ident} = {value};",
+                keyword = format!("{:?}", keyword).to_lowercase(),
+                ident = ident,
+                value = value,
+            ),
         }
     }
 }
@@ -134,7 +137,8 @@ pub(crate) struct FunctionDeclaration {
     pub identifier: Identifier,
     /// Paramètres de la fonction
     // TODO(berbiche): Devrais-je être réécrit sous la forme suivante?...
-    // TODO(berbiche): ...Vec<(identifiant: string, type: string, valeur_par_defaut: Option<Box<Expression>)>
+    // TODO(berbiche): ...Vec<(identifiant: string, type: string, valeur_par_defaut:
+    // Option<Box<Expression>)>
     pub parameters: Vec<Variable>,
     /// Le corps de la fonction
     pub body: Block,
@@ -144,11 +148,13 @@ pub(crate) struct FunctionDeclaration {
 
 impl fmt::Display for FunctionDeclaration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "fun {id}({params}) -> {return_type} {body}",
-               id = self.identifier,
-               params = self.parameters.iter().join(", "),
-               return_type = self.return_type,
-               body = self.body
+        writeln!(
+            f,
+            "fun {id}({params}) -> {return_type} {body}",
+            id = self.identifier,
+            params = self.parameters.iter().join(", "),
+            return_type = self.return_type,
+            body = self.body
         )
     }
 }
@@ -198,7 +204,9 @@ impl fmt::Display for Expression {
         match *self {
             Identifier(ref st) => write!(f, "{}", st)?,
             Literal(ref lit) => fmt::Display::fmt(lit, f)?,
-            FunCall(ref target, ref arguments) => write!(f, "{}({})", target, arguments.iter().join(", "))?,
+            FunCall(ref target, ref arguments) => {
+                write!(f, "{}({})", target, arguments.iter().join(", "))?
+            },
             BinaryExpression(ref lhs, ref op, ref rhs) => {
                 write!(f, "{lhs} {op} {rhs}", lhs = lhs, op = op, rhs = rhs)?;
             },
@@ -255,7 +263,7 @@ impl From<bool> for Literal {
 impl fmt::Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Literal::*;
-        use ::std::fmt::{Display, Debug};
+        use std::fmt::{Debug, Display};
         match *self {
             Array(ref arr) => Debug::fmt(arr, f),
             Number(ref num) => Display::fmt(num, f),
@@ -264,7 +272,6 @@ impl fmt::Display for Literal {
         }
     }
 }
-
 
 /// Un nombre dans le langage
 #[derive(Clone, Debug, PartialEq)]
@@ -321,7 +328,7 @@ pub(crate) enum BinaryOperator {
     Mul,
     NE,
     Plus,
-    Pow
+    Pow,
 }
 
 impl TryFrom<TokenType> for BinaryOperator {
@@ -343,7 +350,7 @@ impl TryFrom<TokenType> for BinaryOperator {
             tt::NotEq => bo::NE,
             tt::Plus => bo::Plus,
             tt::Power => bo::Pow,
-            _ => return Err(())
+            _ => return Err(()),
         })
     }
 }
@@ -351,20 +358,24 @@ impl TryFrom<TokenType> for BinaryOperator {
 impl fmt::Display for BinaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::BinaryOperator::*;
-        write!(f, "{}", match self {
-            Div => "/",
-            EqEq => "==",
-            Gt => ">",
-            GtEq => ">=",
-            Lt => "<",
-            LtEq => "<=",
-            Min => "-",
-            Mod => "%",
-            Mul => "*",
-            NE => "!=",
-            Plus => "+",
-            Pow => "^",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Div => "/",
+                EqEq => "==",
+                Gt => ">",
+                GtEq => ">=",
+                Lt => "<",
+                LtEq => "<=",
+                Min => "-",
+                Mod => "%",
+                Mul => "*",
+                NE => "!=",
+                Plus => "+",
+                Pow => "^",
+            }
+        )
     }
 }
 
@@ -382,7 +393,7 @@ impl TryFrom<TokenType> for UnaryOperator {
 
         Ok(match token_type {
             tt::Not => uo::Not,
-            _ => return Err(())
+            _ => return Err(()),
         })
     }
 }
@@ -390,9 +401,13 @@ impl TryFrom<TokenType> for UnaryOperator {
 impl fmt::Display for UnaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::UnaryOperator::*;
-        write!(f, "{}", match *self {
-            Not => '!',
-        })
+        write!(
+            f,
+            "{}",
+            match *self {
+                Not => '!',
+            }
+        )
     }
 }
 
@@ -402,7 +417,7 @@ pub(crate) struct Variable {
     /// Nom de l'identifiant
     pub name: Identifier,
     /// Le type de variable (type est un mot réservé dans Rust)
-    pub category: Type
+    pub category: Type,
 }
 
 impl fmt::Display for Variable {
@@ -419,8 +434,8 @@ impl fmt::Display for Variable {
 pub(crate) struct Type {
     /// Nom du type
     pub name: String,
-//    /// Visibilité du type
-//    visibility:
+    /*    /// Visibilité du type
+     *    visibility: */
 }
 
 impl fmt::Display for Type {
@@ -432,14 +447,7 @@ impl fmt::Display for Type {
 // Quelques tests pour voir si le formattage fonctionne correctement
 #[cfg(test)]
 mod test {
-    use super::{
-        *,
-        Statement::*,
-        TokenType::*,
-        Keyword,
-        Expression,
-        Literal,
-    };
+    use super::{*, Expression, Keyword, Literal, Statement::*, TokenType::*};
     use ast;
 
     #[test]
@@ -447,12 +455,17 @@ mod test {
         let expected = "let value: int = ((5) + (10));\n";
         let va = Statement::VariableDeclaration(
             Keyword::Let,
-            Variable { name: "value".to_string(), category: Type {name: "int".to_string()} },
+            Variable {
+                name: "value".to_string(),
+                category: Type {
+                    name: "int".to_string(),
+                },
+            },
             box Expression::BinaryExpression(
                 box Expression::Literal(Literal::Number(ast::Number::Int(5))),
                 BinaryOperator::Plus,
                 box Expression::Literal(Literal::Number(ast::Number::Int(10))),
-            )
+            ),
         );
 
         assert_eq!(expected, format!("{}", va));
@@ -471,11 +484,15 @@ return ((a) + (2));
             parameters: vec![
                 Variable {
                     name: "p1".to_string(),
-                    category: Type { name: "int".to_string() }
+                    category: Type {
+                        name: "int".to_string(),
+                    },
                 },
                 Variable {
                     name: "p2".to_string(),
-                    category: Type { name: "string".to_string() }
+                    category: Type {
+                        name: "string".to_string(),
+                    },
                 },
             ],
             body: Block(vec![
@@ -487,15 +504,13 @@ return ((a) + (2));
                             name: "string".to_string(),
                         },
                     },
-                    box Literal::Number(1.into()).into()
+                    box Literal::Number(1.into()).into(),
                 ).into(),
-                Statement::Return(
-                    Some(box Expression::BinaryExpression(
-                        box Literal::String("a".to_string()).into(),
-                        BinaryOperator::Plus,
-                        box Literal::Number(2.into()).into(),
-                    )),
-                ),
+                Statement::Return(Some(box Expression::BinaryExpression(
+                    box Literal::String("a".to_string()).into(),
+                    BinaryOperator::Plus,
+                    box Literal::Number(2.into()).into(),
+                ))),
             ]),
             return_type: Type {
                 name: "string".to_string(),

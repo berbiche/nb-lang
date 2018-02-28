@@ -1,5 +1,4 @@
 #![allow(unused)]
-
 #![feature(attr_literals)]
 #![feature(box_syntax)]
 #![feature(inclusive_range_syntax)]
@@ -8,7 +7,6 @@
 #![feature(nll)]
 #![feature(trace_macros)]
 #![feature(try_from)]
-
 #![feature(plugin)]
 #![plugin(phf_macros)]
 
@@ -19,10 +17,8 @@ extern crate lazy_static;
 #[macro_use]
 extern crate phf;
 
-extern crate itertools;
 extern crate failure;
-
-
+extern crate itertools;
 
 #[macro_use]
 mod token;

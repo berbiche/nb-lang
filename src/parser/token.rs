@@ -101,7 +101,7 @@ macro_rules! token {
 pub enum TokenType {
     EOF,
     Underscore, // _
-    Arrow, // ->
+    Arrow,      // ->
 
     Eq,             // =
     Plus,           // +
@@ -151,8 +151,8 @@ impl fmt::Display for TokenType {
             Illegal(st) | Identifier(st) | Comment(st) | Literal(st) => write!(f, "{}", st),
             Keyword(keyword) => write!(f, "{:?}", keyword),
             Number(num) => match num {
-                Binary(st) | Octal(st) | Hexadecimal(st) | Decimal(st) => write!(f, "{}", st)
-            }
+                Binary(st) | Octal(st) | Hexadecimal(st) | Decimal(st) => write!(f, "{}", st),
+            },
             Boolean(bl) => write!(f, "{}", bl),
             token_type => write!(f, "{:?}", token_type),
         }
@@ -239,7 +239,8 @@ pub enum Number {
 /// L'utilité principale est dans l'affichage de messages d'erreurs.
 ///
 /// **IMPORTANT**: Position n'est pas relatif à l'entrée, c'est-à-dire
-/// que la position ne représente pas un endroit exact dans l'entrée, mais plutôt un endroit pour un humain (ligne et colonne).
+/// que la position ne représente pas un endroit exact dans l'entrée, mais plutôt un endroit pour
+/// un humain (ligne et colonne).
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Position {
     /// Ligne
@@ -250,10 +251,7 @@ pub struct Position {
 
 impl Position {
     pub(crate) fn new(line: usize, column: usize) -> Self {
-        Position {
-            line,
-            column,
-        }
+        Position { line, column }
     }
 
     /// Combine 2 `Position`s en un `Span`
@@ -288,10 +286,7 @@ pub struct Span {
 impl Span {
     /// Créé un nouveau `Span` avec les arguments passés en paramètre
     pub(crate) fn new(begin: Position, end: Position) -> Self {
-        Span {
-            begin,
-            end,
-        }
+        Span { begin, end }
     }
 
     /// Étend une gamme `Span` jusqu'à une position `Position`

@@ -33,8 +33,8 @@ pub(crate) struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     /// Construit un Lexer depuis une chaîne de caractères
     pub fn new<S>(input: S) -> Self
-        where
-            S: Into<&'a str>,
+    where
+        S: Into<&'a str>,
     {
         let mut lexer = Lexer {
             current_char: None,
@@ -51,7 +51,7 @@ impl<'a> Lexer<'a> {
     /// Validation minimale se fait ici, c'est-à-dire que les nombres ne sont pas validés
     // TODO: Convertir la plus part de cette tâche en celle d'un macro
     pub fn read_token(&mut self) -> LResult<Token> {
-        use token::{TokenType::*, Keyword::{self, *}, Number::*};
+        use token::{Keyword::{self, *}, Number::*, TokenType::*};
 
         // saute les espaces blancs
         // TODO: M'enlever une fois que le bug avec skip_whitespace sera résolu
@@ -78,7 +78,8 @@ impl<'a> Lexer<'a> {
                     _ => token!(Minus, self.position),
                 },
                 '/' => match self.peek() {
-                    Some(&ch) if ch == '*' => { // commentaire
+                    Some(&ch) if ch == '*' => {
+                        // commentaire
                         let begin = self.position;
                         let st = self.read_comment();
                         token!(Comment(st), begin => self.position)
@@ -86,7 +87,8 @@ impl<'a> Lexer<'a> {
                     _ => token!(Division, self.position),
                 },
                 '=' => match self.peek() {
-                    Some(&ch) if ch == '=' => { // EqEq
+                    Some(&ch) if ch == '=' => {
+                        // EqEq
                         let begin = self.position;
                         self.read();
                         token!(EqEq, begin => self.position)
@@ -94,7 +96,8 @@ impl<'a> Lexer<'a> {
                     _ => token!(Eq, self.position),
                 },
                 '!' => match self.peek() {
-                    Some(&ch) if ch == '=' => { // non égal
+                    Some(&ch) if ch == '=' => {
+                        // non égal
                         let begin = self.position;
                         self.read();
                         token!(NotEq, begin => self.position)
@@ -102,23 +105,26 @@ impl<'a> Lexer<'a> {
                     _ => token!(Not, self.position),
                 },
                 '<' => match self.peek() {
-                    Some(&ch) if ch == '=' => { // plus petit que ou égal
+                    Some(&ch) if ch == '=' => {
+                        // plus petit que ou égal
                         let begin = self.position;
                         self.read();
                         token!(LtEq, begin => self.position)
                     },
-                    _ => token!(Lt, self.position)
+                    _ => token!(Lt, self.position),
                 },
                 '>' => match self.peek() {
-                    Some(&ch) if ch == '=' => { // plus grand que ou égal
+                    Some(&ch) if ch == '=' => {
+                        // plus grand que ou égal
                         let begin = self.position;
                         self.read();
                         token!(GtEq, begin => self.position)
                     },
-                    _ => token!(Gt, self.position)
+                    _ => token!(Gt, self.position),
                 },
                 '|' => match self.peek() {
-                    Some(&ch) if ch == '|' => { // ou ou
+                    Some(&ch) if ch == '|' => {
+                        // ou ou
                         let begin = self.position;
                         self.read();
                         token!(OrOr, begin => self.position)
@@ -126,7 +132,8 @@ impl<'a> Lexer<'a> {
                     _ => token!(Or, self.position),
                 },
                 '&' => match self.peek() {
-                    Some(&ch) if ch == '&' => { // et et
+                    Some(&ch) if ch == '&' => {
+                        // et et
                         let begin = self.position;
                         self.read();
                         token!(AndAnd, begin => self.position)
@@ -148,38 +155,41 @@ impl<'a> Lexer<'a> {
                     let st = self.read_string()?;
                     token!(Literal(st), begin => self.position)
                 },
-                ch if ch.is_alphabetic() => { // identifiant ou keyword
+                ch if ch.is_alphabetic() => {
+                    // identifiant ou keyword
                     let begin = self.position;
                     let ident = self.read_identifier();
 
                     if ident == "true" {
                         token!(Boolean(true), begin => self.position)
-                    }
-                    else if ident == "false" {
+                    } else if ident == "false" {
                         token!(Boolean(false), begin => self.position)
-                    }
-                    else {
+                    } else {
                         match Keyword::lookup(ident.as_ref()) {
                             Some(token) => token!(token, begin => self.position),
                             None => token!(Identifier(ident), begin => self.position),
                         }
                     }
                 },
-                ch if ch.is_decimal_digit() => { // lit un nombre décimal/octal/etc.
+                ch if ch.is_decimal_digit() => {
+                    // lit un nombre décimal/octal/etc.
                     let begin = self.position;
                     match (ch, self.peek()) {
                         ('0', Some(&peeked)) => match &peeked {
-                            'b' => { // binaire
+                            'b' => {
+                                // binaire
                                 self.read();
                                 let st = self.read_number();
                                 token!(Binary(st), begin => self.position)
                             },
-                            'o' => { // octal
+                            'o' => {
+                                // octal
                                 self.read();
                                 let st = self.read_number();
                                 token!(Octal(st), begin => self.position)
                             },
-                            'x' => { // hexadécimal
+                            'x' => {
+                                // hexadécimal
                                 self.read();
                                 let st = self.read_number();
                                 token!(Hexadecimal(st), begin => self.position)
@@ -190,7 +200,7 @@ impl<'a> Lexer<'a> {
                     }
                 },
                 _ => token!(Illegal(ch.to_string()), self.position),
-            }
+            },
         };
 
         // avance au prochain caractère
@@ -229,8 +239,7 @@ impl<'a> Lexer<'a> {
         if let Some(current) = current {
             if let Some(previous) = previous {
                 // si nous n'avons pas une séquence CRLF
-                if is_newline(&previous) &&
-                    !(previous == '\u{000D}' && current == '\u{000A}') {
+                if is_newline(&previous) && !(previous == '\u{000D}' && current == '\u{000A}') {
                     self.position.line += 1;
                     self.position.column = 0;
                 }
@@ -264,18 +273,18 @@ impl<'a> Lexer<'a> {
 
     /// Lit un commentaire
     fn read_comment(&mut self) -> String {
-        if self.current_char_is('/') { // lit un commentaire de ligne
+        if self.current_char_is('/') {
+            // lit un commentaire de ligne
             self.input.peeking_take_while(is_newline).collect()
-        }
-        else { // lit un commentaire de bloc
+        } else {
+            // lit un commentaire de bloc
             let mut last_ch: char = 0 as u8 as char;
             self.input
                 .peeking_take_while(|ch| {
                     if last_ch != '*' && *ch != '/' {
                         last_ch = ch.clone();
                         true
-                    }
-                    else {
+                    } else {
                         false
                     }
                 })
@@ -287,7 +296,8 @@ impl<'a> Lexer<'a> {
     #[inline]
     fn read_number(&mut self) -> String {
         let mut st = self.current_char.unwrap().to_string();
-        let iter = self.input.peeking_take_while(|ch| ch.is_hexadecimal_digit() || *ch == '_');
+        let iter = self.input
+            .peeking_take_while(|ch| ch.is_hexadecimal_digit() || *ch == '_');
         st.extend(iter);
         st
     }
@@ -306,12 +316,12 @@ impl<'a> Lexer<'a> {
         // pour avoir la bonne position avec les newline
         while let Some(current_ch) = self.read() {
             if is_newline(&current_ch) {
-                return Err(Error::UnterminatedString(self.position.into()))
+                return Err(Error::UnterminatedString(self.position.into()));
             }
 
             // les caractères de contrôle sont interdits
             if current_ch.is_control() {
-                return Err(Error::InvalidString(st, self.position.into()))
+                return Err(Error::InvalidString(st, self.position.into()));
             }
 
             st.push(current_ch);
@@ -335,9 +345,7 @@ impl<'a> Lexer<'a> {
     /// Saute les espaces-blancs, incluant le retour à la ligne
     #[inline]
     fn skip_whitespace(&mut self) {
-        self.input
-            .by_ref()
-            .skip_while(|ch| ch.is_whitespace());
+        self.input.by_ref().skip_while(|ch| ch.is_whitespace());
     }
 }
 
@@ -369,7 +377,6 @@ impl IsDigit for char {
         self.is_digit(16)
     }
 }
-
 
 /// Renvoie `true` si le caractère est une fin de ligne
 /// Supporte les fins de ligne de plusieurs OS
@@ -504,13 +511,8 @@ mod tests {
 
     #[test]
     fn tokenize() {
-        use token::{
-            Token,
-            TokenType::{self, *},
-            Keyword::{self, *},
-            ReservedKeyword::{self, *},
-            Number::{self, *},
-        };
+        use token::{Keyword::{self, *}, Number::{self, *}, ReservedKeyword::{self, *}, Token,
+                    TokenType::{self, *}};
 
         test_lexer!([
             "let input = 5;" => [
@@ -549,4 +551,3 @@ mod tests {
         ]);
     }
 }
-
