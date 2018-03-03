@@ -1,3 +1,5 @@
+[![pipeline status](https://git.microserum.net/nb-programming-language/parser/badges/parser/pipeline.svg)](https://git.microserum.net/nb-programming-language/parser/commits/parser)
+[![coverage report](https://git.microserum.net/nb-programming-language/parser/badges/parser/coverage.svg)](https://git.microserum.net/nb-programming-language/parser/commits/parser)
 # Langage NB
 
 ## Description
